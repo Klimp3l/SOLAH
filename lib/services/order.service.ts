@@ -115,4 +115,8 @@ export class OrderService {
   async listOrders() {
     return this.deps.orderRepository.listAll();
   }
+
+  async listOrdersByUser(userId: string) {
+    return this.deps.orderRepository.listByUserId(userId);
+  }
 }

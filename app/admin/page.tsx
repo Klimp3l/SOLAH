@@ -23,17 +23,6 @@ const quickLinks = [
 export default function AdminHomePage() {
   return (
     <div className="grid gap-6">
-      <section className="grid gap-4 rounded-3xl border bg-card p-6 shadow-sm md:p-8">
-        <Badge variant="secondary" className="w-fit">
-          Visão geral
-        </Badge>
-        <h1 className="text-3xl font-semibold tracking-tight">Painel administrativo</h1>
-        <p className="max-w-2xl text-muted-foreground">
-          Experiência redesenhada para gestão de catálogo e pedidos com visual clean, foco em produtividade e feedback
-          claro nas ações.
-        </p>
-      </section>
-
       <section className="grid gap-4 md:grid-cols-2">
         {quickLinks.map((item) => (
           <Card key={item.href}>
@@ -55,24 +44,6 @@ export default function AdminHomePage() {
           </Card>
         ))}
       </section>
-
-      <Card className="border-dashed">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <PackageCheck className="size-5 text-primary" />
-            Próximo passo sugerido
-          </CardTitle>
-          <CardDescription>
-            Comece por produtos para manter o catálogo atualizado e depois avance para a rotina de pedidos.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Separator className="mb-4" />
-          <Button asChild>
-            <Link href="/admin/produtos">Gerenciar catálogo agora</Link>
-          </Button>
-        </CardContent>
-      </Card>
     </div>
   );
 }

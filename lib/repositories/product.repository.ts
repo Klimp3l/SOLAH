@@ -17,7 +17,7 @@ export class ProductRepository {
   async listAll() {
     const { data, error } = await this.supabase
       .from("products")
-      .select("id,name,description,price,active,created_at")
+      .select("id,name,description,price,active,created_at,product_images(id,product_id,url,position,created_at)")
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -27,7 +27,7 @@ export class ProductRepository {
   async listActive() {
     const { data, error } = await this.supabase
       .from("products")
-      .select("id,name,description,price,active,created_at")
+      .select("id,name,description,price,active,created_at,product_images(id,product_id,url,position,created_at)")
       .eq("active", true)
       .order("created_at", { ascending: false });
 
