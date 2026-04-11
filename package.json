@@ -1,0 +1,33 @@
+{
+  "name": "solah",
+  "version": "1.0.0",
+  "description": "SOLAH backend-first MVP with Next.js and Supabase",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest"
+  },
+  "keywords": [],
+  "dependencies": {
+    "@supabase/ssr": "^0.10.2",
+    "@supabase/supabase-js": "^2.103.0",
+    "next": "^16.2.3",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitest/coverage-v8": "^4.1.4",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.3",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
+  }
+}
