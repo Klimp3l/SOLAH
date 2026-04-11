@@ -5,7 +5,7 @@ import { createOrderSchema } from "@/lib/schemas/order.schema";
 
 export async function POST(request: Request) {
   try {
-    const auth = getRequestAuthContext(request);
+    const auth = await getRequestAuthContext(request);
     const payload = createOrderSchema.parse(await request.json());
     const orderService = makeOrderService();
 

@@ -5,6 +5,16 @@ import type { OrderItemSnapshot, OrderStatus } from "@/types/domain";
 export class OrderRepository {
   constructor(private readonly supabase: SupabaseClient) {}
 
+  async listAll() {
+    const { data, error } = await this.supabase
+      .from("orders")
+      .select("id,user_id,total,status,tracking_code,idempotency_key,created_at")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data ?? [];
+  }
+
   async findByUserAndIdempotencyKey(userId: string, idempotencyKey: string) {
     const { data, error } = await this.supabase
       .from("orders")

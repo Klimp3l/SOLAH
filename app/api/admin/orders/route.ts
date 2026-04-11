@@ -2,23 +2,16 @@ import { getRequestAuthContext } from "@/lib/auth/request-auth";
 import { makeOrderService, makeUserRepository } from "@/lib/factories/api-deps";
 import { assertAdminAccess } from "@/lib/guards/auth.guard";
 import { jsonError, jsonOk } from "@/lib/http";
-import { orderIdParamsSchema, updateOrderStatusSchema } from "@/lib/schemas/order.schema";
 
-type RouteContext = {
-  params: Promise<{ id: string }>;
-};
-
-export async function PATCH(request: Request, context: RouteContext) {
+export async function GET(request: Request) {
   try {
     const auth = await getRequestAuthContext(request);
     await assertAdminAccess({ userId: auth.userId, userRepository: makeUserRepository() });
 
-    const params = orderIdParamsSchema.parse(await context.params);
-    const payload = updateOrderStatusSchema.parse(await request.json());
     const orderService = makeOrderService();
-    const order = await orderService.updateStatus({ orderId: params.id, status: payload.status });
+    const orders = await orderService.listOrders();
 
-    return jsonOk({ data: order });
+    return jsonOk({ data: orders });
   } catch (error) {
     return jsonError(error);
   }

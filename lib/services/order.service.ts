@@ -111,4 +111,8 @@ export class OrderService {
     });
     return this.deps.orderRepository.updateTracking(input.orderId, input.trackingCode);
   }
+
+  async listOrders() {
+    return this.deps.orderRepository.listAll();
+  }
 }

@@ -14,6 +14,16 @@ type ProductUpdate = Partial<ProductInsert>;
 export class ProductRepository {
   constructor(private readonly supabase: SupabaseClient) {}
 
+  async listAll() {
+    const { data, error } = await this.supabase
+      .from("products")
+      .select("id,name,description,price,active,created_at")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data ?? [];
+  }
+
   async listActive() {
     const { data, error } = await this.supabase
       .from("products")

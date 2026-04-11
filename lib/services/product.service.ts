@@ -26,7 +26,11 @@ function validateImages(images: ProductImageInput[]) {
 export class ProductService {
   constructor(private readonly productRepository: ProductRepository) {}
 
-  async listProducts() {
+  async listProducts(options?: { includeInactive?: boolean }) {
+    if (options?.includeInactive) {
+      return this.productRepository.listAll();
+    }
+
     return this.productRepository.listActive();
   }
 

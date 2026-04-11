@@ -10,7 +10,7 @@ type RouteContext = {
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {
-    const auth = getRequestAuthContext(request);
+    const auth = await getRequestAuthContext(request);
     await assertAdminAccess({ userId: auth.userId, userRepository: makeUserRepository() });
 
     const params = productIdParamsSchema.parse(await context.params);
