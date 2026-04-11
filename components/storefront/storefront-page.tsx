@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, ShoppingBag, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -16,6 +16,7 @@ import {
   resolveFinalizeIntent,
   submitOrderRequest
 } from "@/lib/storefront/checkout-flow";
+import { StorefrontHeader } from "@/components/storefront/storefront-header";
 import type { CartItemInput, ProductImage, ProductVariant, ProductWithImages, UserRole } from "@/types/domain";
 
 type StorefrontPageProps = {
@@ -134,7 +135,21 @@ function getSizeOptions(variants: ProductVariant[]): VariantSizeOption[] {
   return options;
 }
 
+function getProductImageForVariant(product: ProductWithImages, variant: ProductVariant) {
+  const preview = getColorPreview(variant);
+  if (preview?.kind === "image") return preview.value;
+  return normalizeProductImages(product.product_images)[0]?.url;
+}
+
+function getMissingSelectionMessage(needsColor: boolean, needsSize: boolean) {
+  if (needsColor && needsSize) return "Selecione cor e tamanho antes de adicionar.";
+  if (needsColor) return "Selecione uma cor antes de adicionar.";
+  if (needsSize) return "Selecione um tamanho antes de adicionar.";
+  return "Selecione uma variação antes de adicionar.";
+}
+
 export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps) {
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("all");
   const [products, setProducts] = useState<ProductWithImages[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<Record<string, string>>({});
@@ -142,8 +157,9 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [cartHydrated, setCartHydrated] = useState(false);
-  const [authRole, setAuthRole] = useState<UserRole | null>(null);
   const [imageIndexByProduct, setImageIndexByProduct] = useState<Record<string, number>>({});
+  const [selectedImageByProduct, setSelectedImageByProduct] = useState<Record<string, string>>({});
+  const [colorDeselectedByProduct, setColorDeselectedByProduct] = useState<Record<string, boolean>>({});
   const [modalState, setModalState] = useState<{ productId: string; imageIndex: number } | null>(null);
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
   const isCheckoutView = initialStep === "checkout";
@@ -185,9 +201,12 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
       const next = { ...current };
       for (const product of products) {
         const activeVariants = (product.product_variants ?? []).filter((variant) => variant.active);
-        if (!activeVariants.length) continue;
-        if (!next[product.id] || !activeVariants.some((variant) => variant.id === next[product.id])) {
-          next[product.id] = activeVariants[0].id;
+        if (!activeVariants.length) {
+          delete next[product.id];
+          continue;
+        }
+        if (next[product.id] && !activeVariants.some((variant) => variant.id === next[product.id])) {
+          delete next[product.id];
         }
       }
       return next;
@@ -197,38 +216,6 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
   useEffect(() => {
     setCart(readStoredCart());
     setCartHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadAuthRole() {
-      try {
-        const response = await fetch("/api/auth/me", {
-          method: "GET",
-          cache: "no-store",
-          credentials: "include"
-        });
-        const body = (await response.json().catch(() => null)) as AuthMeResponse | null;
-        if (!active) return;
-
-        if (!response.ok || !body?.data?.id) {
-          setAuthRole(null);
-          return;
-        }
-
-        setAuthRole(body.data.role ?? null);
-      } catch {
-        if (!active) return;
-        setAuthRole(null);
-      }
-    }
-
-    void loadAuthRole();
-
-    return () => {
-      active = false;
-    };
   }, []);
 
   useEffect(() => {
@@ -292,6 +279,32 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
   const cartQuantity = useMemo(() => {
     return cartItems.reduce((sum, item) => sum + item.quantity, 0);
   }, [cartItems]);
+
+  const categoryFilters = useMemo(() => {
+    const seen = new Set<string>();
+    const categories: Array<{ id: string; name: string }> = [];
+    for (const product of products) {
+      const id = product.categories?.id ?? "uncategorized";
+      if (seen.has(id)) continue;
+      seen.add(id);
+      categories.push({
+        id,
+        name: product.categories?.name?.trim() || "Sem categoria"
+      });
+    }
+    return categories.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  }, [products]);
+
+  const filteredProducts = useMemo(() => {
+    if (selectedCategoryId === "all") return products;
+    return products.filter((product) => (product.categories?.id ?? "uncategorized") === selectedCategoryId);
+  }, [products, selectedCategoryId]);
+
+  useEffect(() => {
+    if (selectedCategoryId === "all") return;
+    if (categoryFilters.some((category) => category.id === selectedCategoryId)) return;
+    setSelectedCategoryId("all");
+  }, [categoryFilters, selectedCategoryId]);
 
   function updateQuantity(variantId: string, quantity: number) {
     const safeQuantity = Math.max(0, Math.floor(Number.isFinite(quantity) ? quantity : 0));
@@ -361,11 +374,37 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
     }
   }
 
+  function clearSelectedProductImage(productId: string) {
+    setSelectedImageByProduct((prev) => {
+      if (!prev[productId]) return prev;
+      const next = { ...prev };
+      delete next[productId];
+      return next;
+    });
+  }
+
   function setProductImageIndex(productId: string, nextIndex: number, imageCount: number) {
     if (imageCount <= 0) return;
 
     const normalizedIndex = ((nextIndex % imageCount) + imageCount) % imageCount;
     setImageIndexByProduct((prev) => ({ ...prev, [productId]: normalizedIndex }));
+    clearSelectedProductImage(productId);
+  }
+
+  function clearColorSelection(product: ProductWithImages, syncModalImage = false) {
+    setColorDeselectedByProduct((current) => ({ ...current, [product.id]: true }));
+    clearSelectedProductImage(product.id);
+
+    const images = normalizeProductImages(product.product_images);
+    if (!images.length) return;
+
+    setImageIndexByProduct((prev) => ({ ...prev, [product.id]: 0 }));
+    if (syncModalImage) {
+      setModalState((current) => {
+        if (!current || current.productId !== product.id) return current;
+        return { ...current, imageIndex: 0 };
+      });
+    }
   }
 
   function syncImageWithVariant(product: ProductWithImages, variant: ProductVariant, syncModal: boolean) {
@@ -374,8 +413,12 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
 
     const images = normalizeProductImages(product.product_images);
     const imageIndex = images.findIndex((image) => image.url === preview.value);
-    if (imageIndex < 0) return;
+    if (imageIndex < 0) {
+      setSelectedImageByProduct((prev) => ({ ...prev, [product.id]: preview.value }));
+      return;
+    }
 
+    clearSelectedProductImage(product.id);
     setProductImageIndex(product.id, imageIndex, images.length);
     if (syncModal) {
       setModalState((current) => {
@@ -391,6 +434,7 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
     if (!selected) return;
 
     setSelectedVariantByProduct((current) => ({ ...current, [product.id]: selected.id }));
+    setColorDeselectedByProduct((current) => ({ ...current, [product.id]: false }));
     syncImageWithVariant(product, selected, syncModalImage);
   }
 
@@ -398,6 +442,12 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
     const activeVariants = (product.product_variants ?? []).filter((variant) => variant.active);
     const currentVariantId = selectedVariantByProduct[product.id];
     const currentVariant = activeVariants.find((variant) => variant.id === currentVariantId) ?? null;
+    const isDeselected = colorDeselectedByProduct[product.id] ?? true;
+
+    if (!isDeselected && currentVariant?.product_color_id === colorId) {
+      clearColorSelection(product, syncModalImage);
+      return;
+    }
 
     const byColor = activeVariants.filter((variant) => variant.product_color_id === colorId);
     if (!byColor.length) return;
@@ -421,6 +471,10 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
       null;
 
     if (!nextVariant) return;
+    if (colorDeselectedByProduct[product.id]) {
+      setSelectedVariantByProduct((current) => ({ ...current, [product.id]: nextVariant.id }));
+      return;
+    }
     selectVariant(product, nextVariant.id, syncModalImage);
   }
 
@@ -435,68 +489,78 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
 
   const modalImages = useMemo(() => normalizeProductImages(modalProduct?.product_images), [modalProduct]);
   const modalCurrentIndex = getSafeImageIndex(modalImages.length, modalState?.imageIndex ?? 0);
+  const modalForcedImage = modalProduct ? selectedImageByProduct[modalProduct.id] : undefined;
+  const modalCurrentImage = modalForcedImage ?? modalImages[modalCurrentIndex]?.url;
   const modalActiveVariants = (modalProduct?.product_variants ?? []).filter((variant) => variant.active);
-  const modalSelectedVariantId = modalProduct
-    ? selectedVariantByProduct[modalProduct.id] ?? modalActiveVariants[0]?.id ?? ""
-    : "";
+  const modalIsColorDeselected = modalProduct ? (colorDeselectedByProduct[modalProduct.id] ?? true) : true;
+  const modalSelectedVariantId = modalProduct ? selectedVariantByProduct[modalProduct.id] ?? "" : "";
   const modalSelectedVariant = modalActiveVariants.find((variant) => variant.id === modalSelectedVariantId) ?? null;
   const modalColorOptions = getColorOptions(modalActiveVariants);
-  const modalSelectedColorId = modalSelectedVariant?.product_color_id ?? modalColorOptions[0]?.id ?? "";
+  const modalSelectedColorId = modalIsColorDeselected ? "" : modalSelectedVariant?.product_color_id ?? modalColorOptions[0]?.id ?? "";
   const modalVariantsByColor = modalActiveVariants.filter((variant) => variant.product_color_id === modalSelectedColorId);
   const modalSizeOptions = getSizeOptions(modalVariantsByColor.length ? modalVariantsByColor : modalActiveVariants);
   const modalHasMultipleSizes = modalSizeOptions.length > 1;
+  const modalRequiresColorSelection = modalColorOptions.length > 0;
+  const modalRequiresSizeSelection = modalHasMultipleSizes;
+  const modalHasSelectedColor = !modalIsColorDeselected && Boolean(modalSelectedColorId);
+  const modalHasSelectedSize = !modalRequiresSizeSelection || Boolean(modalSelectedVariant?.size_id);
+  const modalCanAddToCart = Boolean(modalSelectedVariantId) && (!modalRequiresColorSelection || modalHasSelectedColor) && modalHasSelectedSize;
   const modalQuantity = modalSelectedVariantId ? cart[modalSelectedVariantId] ?? 0 : 0;
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/40 px-4 py-10">
-      <div className="mx-auto grid w-full max-w-6xl gap-6">
-        <section className="grid gap-4 rounded-3xl border bg-card/80 p-6">
-          <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">SOLAH</h1>
-          <div className="flex flex-wrap gap-2">
-            <Button asChild variant={isCheckoutView ? "outline" : "default"}>
-              <Link href="/">Catálogo</Link>
-            </Button>
-            <Button asChild variant={isCheckoutView ? "default" : "outline"}>
-              <Link href="/checkout">Checkout</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href="/meus-pedidos">Meus pedidos</Link>
-            </Button>
-            {authRole === "admin" && (
-              <Button asChild variant="ghost">
-                <Link href="/admin">Acessar admin</Link>
-              </Button>
-            )}
-          </div>
-        </section>
+    <main className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/40">
+      <StorefrontHeader activeView={isCheckoutView ? "checkout" : "catalogo"} />
 
-        <section className="grid gap-4">
-          <Card>
+      <section className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 md:px-6">
+        {!isCheckoutView && (
+          <section className="grid gap-4">
+          <Card className="bg-transparent border-none shadow-none">
             <CardHeader>
-              <CardTitle>{isCheckoutView ? "Resumo do pedido" : "Produtos disponíveis"}</CardTitle>
-              <CardDescription>
-                {isCheckoutView
-                  ? "Revise os itens e finalize com segurança."
-                  : "Adicione produtos ao carrinho antes de finalizar."}
-              </CardDescription>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={selectedCategoryId === "all" ? "default" : "outline"}
+                  onClick={() => setSelectedCategoryId("all")}
+                >
+                  Todos
+                </Button>
+                {categoryFilters.map((category) => (
+                  <Button
+                    key={category.id}
+                    type="button"
+                    size="sm"
+                    variant={selectedCategoryId === category.id ? "default" : "outline"}
+                    onClick={() => setSelectedCategoryId(category.id)}
+                  >
+                    {category.name}
+                  </Button>
+                ))}
+              </div>
             </CardHeader>
             <CardContent className="grid gap-4">
               {productsLoading && <p className="text-sm text-muted-foreground">Carregando catálogo...</p>}
               {loadError && <p className="text-sm text-destructive">{loadError}</p>}
               {!productsLoading && !loadError && (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {products.map((product) => {
+                  {filteredProducts.map((product) => {
                     const images = normalizeProductImages(product.product_images);
                     const currentIndex = getSafeImageIndex(images.length, imageIndexByProduct[product.id] ?? 0);
-                    const currentImage = images[currentIndex]?.url;
                     const activeVariants = (product.product_variants ?? []).filter((variant) => variant.active);
-                    const selectedVariantId = selectedVariantByProduct[product.id] ?? activeVariants[0]?.id ?? "";
+                    const selectedVariantId = selectedVariantByProduct[product.id] ?? "";
                     const selectedVariant = activeVariants.find((variant) => variant.id === selectedVariantId) ?? null;
+                    const currentImage = selectedImageByProduct[product.id] ?? images[currentIndex]?.url;
                     const colorOptions = getColorOptions(activeVariants);
-                    const selectedColorId = selectedVariant?.product_color_id ?? colorOptions[0]?.id ?? "";
+                    const isColorDeselected = colorDeselectedByProduct[product.id] ?? true;
+                    const selectedColorId = isColorDeselected ? "" : selectedVariant?.product_color_id ?? colorOptions[0]?.id ?? "";
                     const variantsBySelectedColor = activeVariants.filter((variant) => variant.product_color_id === selectedColorId);
                     const sizeOptions = getSizeOptions(variantsBySelectedColor.length ? variantsBySelectedColor : activeVariants);
                     const hasMultipleSizes = sizeOptions.length > 1;
+                    const requiresColorSelection = colorOptions.length > 0;
+                    const requiresSizeSelection = hasMultipleSizes;
+                    const hasSelectedColor = !isColorDeselected && Boolean(selectedColorId);
+                    const hasSelectedSize = !requiresSizeSelection || Boolean(selectedVariant?.size_id);
+                    const canAddToCart = Boolean(selectedVariant) && (!requiresColorSelection || hasSelectedColor) && hasSelectedSize;
                     const quantity = selectedVariant ? cart[selectedVariant.id] ?? 0 : 0;
 
                     return (
@@ -642,23 +706,31 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
                               min={0}
                               value={quantity}
                               onChange={(event) => {
-                                if (!selectedVariant) return;
+                                if (!selectedVariant || !canAddToCart) return;
                                 updateQuantity(selectedVariant.id, Number(event.target.value));
                               }}
                               className="max-w-24"
-                              disabled={!selectedVariant}
+                              disabled={!canAddToCart}
                             />
                             <Button
                               variant="outline"
                               onClick={() => {
-                                if (!selectedVariant) return;
+                                if (!selectedVariant || !canAddToCart) {
+                                  toast.error(getMissingSelectionMessage(requiresColorSelection && !hasSelectedColor, requiresSizeSelection && !hasSelectedSize));
+                                  return;
+                                }
                                 updateQuantity(selectedVariant.id, quantity + 1);
                               }}
-                              disabled={!selectedVariant}
+                              disabled={!activeVariants.length}
                             >
                               +1
                             </Button>
                           </div>
+                          {!canAddToCart && (requiresColorSelection || requiresSizeSelection) && (
+                            <p className="text-xs text-muted-foreground">
+                              {getMissingSelectionMessage(requiresColorSelection && !hasSelectedColor, requiresSizeSelection && !hasSelectedSize)}
+                            </p>
+                          )}
                         </CardContent>
                       </Card>
                     );
@@ -668,24 +740,119 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
             </CardContent>
           </Card>
 
-        </section>
+          </section>
+        )}
 
-        <Button
-          type="button"
-          size="icon"
-          className="fixed bottom-6 right-6 z-40 size-14 rounded-full shadow-lg"
-          onClick={() => setIsCartDrawerOpen(true)}
-          aria-label="Abrir carrinho"
-        >
-          <ShoppingBag className="size-6" />
-          {cartQuantity > 0 && (
-            <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-[11px] font-semibold leading-none text-destructive-foreground">
-              {cartQuantity}
-            </span>
-          )}
-        </Button>
+        {isCheckoutView && (
+          <section className="mx-auto w-full max-w-2xl">
+            <Card className="border bg-card shadow-xl">
+              <CardHeader className="grid gap-1 border-b">
+                <h2 className="flex items-center gap-2 text-lg font-semibold">
+                  <ShoppingBag className="size-4 text-primary" />
+                  Checkout
+                </h2>
+                <p className="text-sm text-muted-foreground">Confira seus itens antes de finalizar o pedido.</p>
+              </CardHeader>
+              <CardContent className="grid gap-4 p-4 md:p-6">
+                {cartItems.length === 0 ? (
+                  <div className="grid gap-3">
+                    <p className="text-sm text-muted-foreground">Nenhum item no carrinho.</p>
+                    <Button asChild variant="outline" className="w-fit">
+                      <Link href="/">Voltar ao catálogo</Link>
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid gap-3">
+                      {cartItems.map((item) => {
+                        const itemImage = getProductImageForVariant(item.product, item.variant);
+                        return (
+                          <div key={`checkout-${item.variantId}`} className="flex items-center gap-3 rounded-lg border p-3">
+                            <div className="size-14 shrink-0 overflow-hidden rounded-md border bg-muted">
+                              {itemImage ? (
+                                <img src={itemImage} alt={item.product.name} className="size-full object-cover" loading="lazy" />
+                              ) : (
+                                <div className="flex size-full items-center justify-center text-[10px] text-muted-foreground">Sem imagem</div>
+                              )}
+                            </div>
+                            <div className="grid flex-1 gap-0.5 text-sm">
+                              <span className="font-medium">{item.product.name}</span>
+                              <span className="text-xs text-muted-foreground">{getVariantLabel(item.variant)}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {item.quantity}x {formatCurrency(Number(item.variant.price))}
+                              </span>
+                              <button
+                                type="button"
+                                className="inline-flex w-fit items-center gap-1 text-xs font-medium text-destructive transition hover:opacity-80"
+                                onClick={() => updateQuantity(item.variantId, 0)}
+                              >
+                                <Trash2 className="size-3.5" />
+                                Remover
+                              </button>
+                            </div>
+                            <div className="grid justify-items-end gap-1">
+                              <div className="inline-flex items-center gap-1 rounded-md border p-0.5">
+                                <button
+                                  type="button"
+                                  className="inline-flex size-6 items-center justify-center rounded-sm hover:bg-muted"
+                                  onClick={() => updateQuantity(item.variantId, item.quantity - 1)}
+                                  aria-label="Diminuir quantidade"
+                                >
+                                  <Minus className="size-3.5" />
+                                </button>
+                                <span className="min-w-6 text-center text-xs font-medium">{item.quantity}</span>
+                                <button
+                                  type="button"
+                                  className="inline-flex size-6 items-center justify-center rounded-sm hover:bg-muted"
+                                  onClick={() => updateQuantity(item.variantId, item.quantity + 1)}
+                                  aria-label="Aumentar quantidade"
+                                >
+                                  <Plus className="size-3.5" />
+                                </button>
+                              </div>
+                              <span className="text-sm font-semibold">{formatCurrency(Number(item.variant.price) * item.quantity)}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="flex items-center justify-between border-t pt-3 text-sm">
+                      <span>Total</span>
+                      <span className="font-semibold">{formatCurrency(total)}</span>
+                    </div>
+                    <Button
+                      type="button"
+                      size="lg"
+                      onClick={() => void handleFinalizeOrder()}
+                      disabled={submittingOrder || cartItems.length === 0}
+                    >
+                      {submittingOrder ? "Processando..." : "Finalizar pedido"}
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </section>
+        )}
 
-        {isCartDrawerOpen && (
+        {!isCheckoutView && (
+          <Button
+            type="button"
+            size="icon"
+            className="fixed bottom-6 right-6 z-40 size-14 rounded-full shadow-lg"
+            onClick={() => setIsCartDrawerOpen(true)}
+            aria-label="Abrir carrinho"
+          >
+            <ShoppingBag className="size-6" />
+            {cartQuantity > 0 && (
+              <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-[11px] font-semibold leading-none text-destructive-foreground">
+                {cartQuantity}
+              </span>
+            )}
+          </Button>
+        )}
+
+        {!isCheckoutView && isCartDrawerOpen && (
           <div className="fixed inset-0 z-40 bg-background/70 backdrop-blur-sm">
             <button
               type="button"
@@ -719,17 +886,56 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
                 ) : (
                   <>
                     <div className="grid gap-2">
-                      {cartItems.map((item) => (
-                        <div key={item.variantId} className="flex items-center justify-between gap-3 text-sm">
-                          <span className="grid">
-                            <span>
-                              {item.quantity}x {item.product.name}
+                      {cartItems.map((item) => {
+                        const itemImage = getProductImageForVariant(item.product, item.variant);
+                        return (
+                          <div key={item.variantId} className="flex items-center gap-3 rounded-lg border p-2 text-sm">
+                            <div className="size-12 shrink-0 overflow-hidden rounded-md border bg-muted">
+                              {itemImage ? (
+                                <img src={itemImage} alt={item.product.name} className="size-full object-cover" loading="lazy" />
+                              ) : (
+                                <div className="flex size-full items-center justify-center text-[10px] text-muted-foreground">Sem imagem</div>
+                              )}
+                            </div>
+                            <span className="grid flex-1">
+                              <span>
+                                {item.quantity}x {item.product.name}
+                              </span>
+                              <span className="text-xs text-muted-foreground">{getVariantLabel(item.variant)}</span>
+                              <button
+                                type="button"
+                                className="inline-flex w-fit items-center gap-1 text-xs font-medium text-destructive transition hover:opacity-80"
+                                onClick={() => updateQuantity(item.variantId, 0)}
+                              >
+                                <Trash2 className="size-3.5" />
+                                Remover
+                              </button>
                             </span>
-                            <span className="text-xs text-muted-foreground">{getVariantLabel(item.variant)}</span>
-                          </span>
-                          <span className="font-medium">{formatCurrency(Number(item.variant.price) * item.quantity)}</span>
-                        </div>
-                      ))}
+                            <div className="grid justify-items-end gap-1">
+                              <div className="inline-flex items-center gap-1 rounded-md border p-0.5">
+                                <button
+                                  type="button"
+                                  className="inline-flex size-6 items-center justify-center rounded-sm hover:bg-muted"
+                                  onClick={() => updateQuantity(item.variantId, item.quantity - 1)}
+                                  aria-label="Diminuir quantidade"
+                                >
+                                  <Minus className="size-3.5" />
+                                </button>
+                                <span className="min-w-6 text-center text-xs font-medium">{item.quantity}</span>
+                                <button
+                                  type="button"
+                                  className="inline-flex size-6 items-center justify-center rounded-sm hover:bg-muted"
+                                  onClick={() => updateQuantity(item.variantId, item.quantity + 1)}
+                                  aria-label="Aumentar quantidade"
+                                >
+                                  <Plus className="size-3.5" />
+                                </button>
+                              </div>
+                              <span className="font-medium">{formatCurrency(Number(item.variant.price) * item.quantity)}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                     <div className="flex items-center justify-between border-t pt-3 text-sm">
                       <span>Total</span>
@@ -762,9 +968,9 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
               onClick={(event) => event.stopPropagation()}
             >
               <div className="relative w-full overflow-hidden rounded-xl border bg-muted">
-                {modalImages[modalCurrentIndex]?.url ? (
+                {modalCurrentImage ? (
                   <img
-                    src={modalImages[modalCurrentIndex].url}
+                    src={modalCurrentImage}
                     alt={modalProduct.name}
                     className="mx-auto max-h-[55vh] w-full object-contain"
                   />
@@ -781,7 +987,8 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
                       size="icon"
                       variant="secondary"
                       className="absolute left-3 top-1/2 -translate-y-1/2"
-                      onClick={() =>
+                      onClick={() => {
+                        clearSelectedProductImage(modalProduct.id);
                         setModalState((current) =>
                           current
                             ? {
@@ -789,8 +996,8 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
                               imageIndex: ((modalCurrentIndex - 1 + modalImages.length) % modalImages.length) || 0
                             }
                             : current
-                        )
-                      }
+                        );
+                      }}
                     >
                       <ChevronLeft className="size-4" />
                     </Button>
@@ -799,7 +1006,8 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
                       size="icon"
                       variant="secondary"
                       className="absolute right-3 top-1/2 -translate-y-1/2"
-                      onClick={() =>
+                      onClick={() => {
+                        clearSelectedProductImage(modalProduct.id);
                         setModalState((current) =>
                           current
                             ? {
@@ -807,8 +1015,8 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
                               imageIndex: ((modalCurrentIndex + 1) % modalImages.length) || 0
                             }
                             : current
-                        )
-                      }
+                        );
+                      }}
                     >
                       <ChevronRight className="size-4" />
                     </Button>
@@ -836,9 +1044,10 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
                         key={`${image.id}-modal`}
                         type="button"
                         className={`h-2 w-6 rounded-full ${index === modalCurrentIndex ? "bg-primary" : "bg-muted"}`}
-                        onClick={() =>
-                          setModalState((current) => (current ? { ...current, imageIndex: index } : current))
-                        }
+                        onClick={() => {
+                          clearSelectedProductImage(modalProduct.id);
+                          setModalState((current) => (current ? { ...current, imageIndex: index } : current));
+                        }}
                         aria-label={`Ver imagem ${index + 1}`}
                       />
                     ))}
@@ -899,28 +1108,44 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
                     min={0}
                     value={modalQuantity}
                     onChange={(event) => {
-                      if (!modalSelectedVariantId) return;
+                      if (!modalSelectedVariantId || !modalCanAddToCart) return;
                       updateQuantity(modalSelectedVariantId, Number(event.target.value));
                     }}
                     className="max-w-24"
-                    disabled={!modalSelectedVariantId}
+                    disabled={!modalCanAddToCart}
                   />
                   <Button
                     variant="outline"
                     onClick={() => {
-                      if (!modalSelectedVariantId) return;
+                      if (!modalSelectedVariantId || !modalCanAddToCart) {
+                        toast.error(
+                          getMissingSelectionMessage(
+                            modalRequiresColorSelection && !modalHasSelectedColor,
+                            modalRequiresSizeSelection && !modalHasSelectedSize
+                          )
+                        );
+                        return;
+                      }
                       updateQuantity(modalSelectedVariantId, modalQuantity + 1);
                     }}
-                    disabled={!modalSelectedVariantId}
+                    disabled={!modalActiveVariants.length}
                   >
                     +1
                   </Button>
+                  {!modalCanAddToCart && (modalRequiresColorSelection || modalRequiresSizeSelection) && (
+                    <p className="text-xs text-muted-foreground">
+                      {getMissingSelectionMessage(
+                        modalRequiresColorSelection && !modalHasSelectedColor,
+                        modalRequiresSizeSelection && !modalHasSelectedSize
+                      )}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
           </div>
         )}
-      </div>
+      </section>
     </main>
   );
 }

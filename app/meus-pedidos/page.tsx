@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { StorefrontHeader } from "@/components/storefront/storefront-header";
 import type { Order } from "@/types/domain";
 
 type ApiError = {
@@ -106,8 +107,9 @@ export default function CustomerOrdersPage() {
   }, [highlightedOrderId, orders]);
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/30 px-4 py-10">
-      <div className="mx-auto grid w-full max-w-6xl gap-6">
+    <main className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/40">
+      <StorefrontHeader activeView="pedidos" />
+      <section className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 md:px-6">
         <Card>
           <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
             <div className="space-y-1">
@@ -225,7 +227,7 @@ export default function CustomerOrdersPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </section>
     </main>
   );
 }
