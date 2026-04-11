@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/orders/route";
+import { UnauthorizedError } from "@/lib/errors";
 
-const createOrderMock = vi.fn();
+const { createOrderMock, getRequestAuthContextMock } = vi.hoisted(() => ({
+  createOrderMock: vi.fn(),
+  getRequestAuthContextMock: vi.fn()
+}));
 
 vi.mock("@/lib/factories/api-deps", () => ({
   makeOrderService: () => ({
@@ -9,15 +13,21 @@ vi.mock("@/lib/factories/api-deps", () => ({
   })
 }));
 
+vi.mock("@/lib/auth/request-auth", () => ({
+  getRequestAuthContext: getRequestAuthContextMock
+}));
+
 describe("POST /api/orders", () => {
   beforeEach(() => {
     createOrderMock.mockReset();
+    getRequestAuthContextMock.mockReset();
+    getRequestAuthContextMock.mockResolvedValue({ userId: "user-1" });
   });
 
   it("retorna 400 para payload inválido (Zod)", async () => {
     const request = new Request("http://localhost/api/orders", {
       method: "POST",
-      headers: { "content-type": "application/json", "x-user-id": "user-1" },
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({
         idempotencyKey: "123",
         items: []
@@ -37,7 +47,7 @@ describe("POST /api/orders", () => {
 
     const request = new Request("http://localhost/api/orders", {
       method: "POST",
-      headers: { "content-type": "application/json", "x-user-id": "user-1" },
+      headers: { "content-type": "application/json" },
       body: JSON.stringify({
         idempotencyKey: "abc12345",
         items: [{ productId: "550e8400-e29b-41d4-a716-446655440000", quantity: 1 }]
@@ -46,5 +56,21 @@ describe("POST /api/orders", () => {
 
     const response = await POST(request);
     expect(response.status).toBe(201);
+  });
+
+  it("retorna 401 quando não há autenticação", async () => {
+    getRequestAuthContextMock.mockRejectedValueOnce(new UnauthorizedError("Faça login para acessar este recurso."));
+
+    const request = new Request("http://localhost/api/orders", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        idempotencyKey: "abc12345",
+        items: [{ productId: "550e8400-e29b-41d4-a716-446655440000", quantity: 1 }]
+      })
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(401);
   });
 });
