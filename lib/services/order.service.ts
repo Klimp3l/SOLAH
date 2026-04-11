@@ -55,8 +55,12 @@ export class OrderService {
 
     const snapshots = input.items.map((item) => {
       const variant = variantMap.get(item.variantId);
-      if (!variant || !variant.active || !variant.products?.active) {
+      const variantProduct = Array.isArray(variant?.products) ? variant.products[0] : variant?.products;
+      if (!variant || !variant.active || !variantProduct?.active) {
         throw new NotFoundError(`Variante ${item.variantId} não disponível.`);
+      }
+      if (variant.product_id !== item.productId) {
+        throw new ValidationError("Produto informado não corresponde à variante selecionada.");
       }
       if (item.quantity <= 0) {
         throw new ValidationError("Quantidade inválida no carrinho.");

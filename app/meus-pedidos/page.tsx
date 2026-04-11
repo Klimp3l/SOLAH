@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, Suspense, useEffect, useMemo, useState } from "react";
 import { Loader2, RefreshCcw } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -55,7 +55,7 @@ function formatDate(value: string) {
   }).format(date);
 }
 
-export default function CustomerOrdersPage() {
+function CustomerOrdersPageContent() {
   const searchParams = useSearchParams();
   const highlightedOrderId = searchParams.get("pedido");
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
@@ -229,5 +229,13 @@ export default function CustomerOrdersPage() {
         </Card>
       </section>
     </main>
+  );
+}
+
+export default function CustomerOrdersPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/40" />}>
+      <CustomerOrdersPageContent />
+    </Suspense>
   );
 }
