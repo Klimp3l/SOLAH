@@ -19,7 +19,7 @@ export class OrderRepository {
     const { data, error } = await this.supabase
       .from("orders")
       .select(
-        "id,user_id,total,status,tracking_code,idempotency_key,created_at,order_items(quantity,price,products(name))"
+        "id,user_id,total,status,tracking_code,idempotency_key,created_at,order_items(quantity,price,products(name),product_variants(id,product_colors(name),sizes(name)))"
       )
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
@@ -63,6 +63,7 @@ export class OrderRepository {
     const orderItems = input.items.map((item) => ({
       order_id: order.id,
       product_id: item.product_id,
+      product_variant_id: item.product_variant_id,
       quantity: item.quantity,
       price: item.price
     }));

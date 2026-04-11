@@ -2,9 +2,7 @@ import { getRequestAuthContext } from "@/lib/auth/request-auth";
 import { makeProductService, makeUserRepository } from "@/lib/factories/api-deps";
 import { assertAdminAccess } from "@/lib/guards/auth.guard";
 import { jsonError, jsonOk } from "@/lib/http";
-import { parseRequestWithOptionalImageUpload } from "@/lib/http/parse-product-request";
-import { createProductSchema } from "@/lib/schemas/product.schema";
-import { uploadProductImageFile } from "@/lib/services/product-image-upload.service";
+import { createLookupSchema } from "@/lib/schemas/product.schema";
 
 export async function GET(request: Request) {
   try {
@@ -12,8 +10,8 @@ export async function GET(request: Request) {
     await assertAdminAccess({ userId: auth.userId, userRepository: makeUserRepository() });
 
     const productService = makeProductService();
-    const products = await productService.listProducts({ includeInactive: true });
-    return jsonOk({ data: products });
+    const lookups = await productService.listLookups();
+    return jsonOk({ data: lookups });
   } catch (error) {
     return jsonError(error);
   }
@@ -24,10 +22,10 @@ export async function POST(request: Request) {
     const auth = await getRequestAuthContext(request);
     await assertAdminAccess({ userId: auth.userId, userRepository: makeUserRepository() });
 
-    const payload = await parseRequestWithOptionalImageUpload(request, createProductSchema, uploadProductImageFile);
+    const payload = createLookupSchema.parse(await request.json());
     const productService = makeProductService();
-    const product = await productService.createProduct(payload);
-    return jsonOk({ data: product }, 201);
+    const lookup = await productService.createLookup(payload.kind, payload);
+    return jsonOk({ data: lookup }, 201);
   } catch (error) {
     return jsonError(error);
   }

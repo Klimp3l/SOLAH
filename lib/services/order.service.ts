@@ -49,24 +49,25 @@ export class OrderService {
       };
     }
 
-    const productIds = [...new Set(input.items.map((item) => item.productId))];
-    const products = await this.deps.productRepository.getByIds(productIds);
-    const productMap = new Map(products.map((product) => [product.id, product]));
+    const variantIds = [...new Set(input.items.map((item) => item.variantId))];
+    const variants = await this.deps.productRepository.getVariantsByIds(variantIds);
+    const variantMap = new Map(variants.map((variant) => [variant.id, variant]));
 
     const snapshots = input.items.map((item) => {
-      const product = productMap.get(item.productId);
-      if (!product || !product.active) {
-        throw new NotFoundError(`Produto ${item.productId} não disponível.`);
+      const variant = variantMap.get(item.variantId);
+      if (!variant || !variant.active || !variant.products?.active) {
+        throw new NotFoundError(`Variante ${item.variantId} não disponível.`);
       }
       if (item.quantity <= 0) {
         throw new ValidationError("Quantidade inválida no carrinho.");
       }
 
       return {
-        product_id: item.productId,
+        product_id: variant.product_id,
+        product_variant_id: item.variantId,
         quantity: item.quantity,
         // Snapshot do preço no momento da compra.
-        price: Number(product.price)
+        price: Number(variant.price)
       };
     });
 

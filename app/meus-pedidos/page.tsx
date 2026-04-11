@@ -26,6 +26,10 @@ type CustomerOrderItem = {
   products?: {
     name?: string | null;
   } | null;
+  product_variants?: {
+    product_colors?: { name?: string | null } | null;
+    sizes?: { name?: string | null } | null;
+  } | null;
 };
 
 type CustomerOrder = Order & {
@@ -194,6 +198,8 @@ export default function CustomerOrdersPage() {
                                         >
                                           <span>{item.products?.name ?? "Produto"}</span>
                                           <span>
+                                            {(item.product_variants?.product_colors?.name ?? "Cor")} /{" "}
+                                            {(item.product_variants?.sizes?.name ?? "Tam")} ·{" "}
                                             {item.quantity}x {formatCurrency(Number(item.price))}
                                           </span>
                                         </div>

@@ -17,7 +17,7 @@ describe("order.service", () => {
     };
 
     const productRepository = {
-      getByIds: vi.fn()
+      getVariantsByIds: vi.fn()
     };
 
     const service = new OrderService({
@@ -29,7 +29,13 @@ describe("order.service", () => {
     const result = await service.createOrder({
       userId: "user-1",
       idempotencyKey: "abc12345",
-      items: [{ productId: "11111111-1111-1111-1111-111111111111", quantity: 1 }]
+      items: [
+        {
+          productId: "11111111-1111-1111-1111-111111111111",
+          variantId: "22222222-1111-1111-1111-111111111111",
+          quantity: 1
+        }
+      ]
     });
 
     expect(result.idempotent).toBe(true);
@@ -54,12 +60,17 @@ describe("order.service", () => {
     };
 
     const productRepository = {
-      getByIds: vi.fn().mockResolvedValue([
+      getVariantsByIds: vi.fn().mockResolvedValue([
         {
-          id: "11111111-1111-1111-1111-111111111111",
-          name: "Produto A",
+          id: "22222222-1111-1111-1111-111111111111",
+          product_id: "11111111-1111-1111-1111-111111111111",
           price: 149.9,
-          active: true
+          active: true,
+          products: {
+            id: "11111111-1111-1111-1111-111111111111",
+            name: "Produto A",
+            active: true
+          }
         }
       ])
     };
@@ -73,7 +84,13 @@ describe("order.service", () => {
     await service.createOrder({
       userId: "user-2",
       idempotencyKey: "token-9999",
-      items: [{ productId: "11111111-1111-1111-1111-111111111111", quantity: 2 }]
+      items: [
+        {
+          productId: "11111111-1111-1111-1111-111111111111",
+          variantId: "22222222-1111-1111-1111-111111111111",
+          quantity: 2
+        }
+      ]
     });
 
     expect(orderRepository.createWithItems).toHaveBeenCalledWith(
@@ -81,6 +98,7 @@ describe("order.service", () => {
         items: [
           {
             product_id: "11111111-1111-1111-1111-111111111111",
+            product_variant_id: "22222222-1111-1111-1111-111111111111",
             quantity: 2,
             price: 149.9
           }

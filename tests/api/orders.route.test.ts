@@ -50,7 +50,7 @@ describe("POST /api/orders", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         idempotencyKey: "abc12345",
-        items: [{ productId: "550e8400-e29b-41d4-a716-446655440000", quantity: 1 }]
+        items: [{ variantId: "650e8400-e29b-41d4-a716-446655440000", quantity: 1 }]
       })
     });
 
@@ -66,7 +66,7 @@ describe("POST /api/orders", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         idempotencyKey: "abc12345",
-        items: [{ productId: "550e8400-e29b-41d4-a716-446655440000", quantity: 1 }]
+        items: [{ variantId: "650e8400-e29b-41d4-a716-446655440000", quantity: 1 }]
       })
     });
 

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   buildLoginUrl,
   createOrderPayload,
@@ -15,7 +16,7 @@ import {
   resolveFinalizeIntent,
   submitOrderRequest
 } from "@/lib/storefront/checkout-flow";
-import type { CartItemInput, ProductImage, ProductWithImages, UserRole } from "@/types/domain";
+import type { CartItemInput, ProductImage, ProductVariant, ProductWithImages, UserRole } from "@/types/domain";
 
 type StorefrontPageProps = {
   initialStep?: "catalogo" | "checkout";
@@ -69,9 +70,74 @@ function getSafeImageIndex(length: number, currentIndex: number) {
   return currentIndex;
 }
 
+function getVariantLabel(variant: ProductVariant) {
+  const color = variant.product_colors?.name ?? "Cor";
+  const size = variant.sizes?.name ?? "Tamanho";
+  return `${color} · ${size}`;
+}
+
+function getColorPreview(variant: ProductVariant) {
+  const colorValue = variant.product_colors?.image_url?.trim();
+  if (!colorValue) return null;
+  if (colorValue.startsWith("#")) {
+    return {
+      kind: "hex" as const,
+      value: colorValue
+    };
+  }
+  if (colorValue.startsWith("http://") || colorValue.startsWith("https://")) {
+    return {
+      kind: "image" as const,
+      value: colorValue
+    };
+  }
+  return null;
+}
+
+type VariantColorOption = {
+  id: string;
+  name: string;
+  preview: ReturnType<typeof getColorPreview>;
+};
+
+type VariantSizeOption = {
+  id: string;
+  name: string;
+};
+
+function getColorOptions(variants: ProductVariant[]): VariantColorOption[] {
+  const seen = new Set<string>();
+  const options: VariantColorOption[] = [];
+  for (const variant of variants) {
+    if (seen.has(variant.product_color_id)) continue;
+    seen.add(variant.product_color_id);
+    options.push({
+      id: variant.product_color_id,
+      name: variant.product_colors?.name ?? "Cor",
+      preview: getColorPreview(variant)
+    });
+  }
+  return options;
+}
+
+function getSizeOptions(variants: ProductVariant[]): VariantSizeOption[] {
+  const seen = new Set<string>();
+  const options: VariantSizeOption[] = [];
+  for (const variant of variants) {
+    if (seen.has(variant.size_id)) continue;
+    seen.add(variant.size_id);
+    options.push({
+      id: variant.size_id,
+      name: variant.sizes?.name ?? "Tamanho"
+    });
+  }
+  return options;
+}
+
 export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps) {
   const [products, setProducts] = useState<ProductWithImages[]>([]);
   const [cart, setCart] = useState<Record<string, number>>({});
+  const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<Record<string, string>>({});
   const [productsLoading, setProductsLoading] = useState(true);
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [loadError, setLoadError] = useState("");
@@ -113,6 +179,20 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    setSelectedVariantByProduct((current) => {
+      const next = { ...current };
+      for (const product of products) {
+        const activeVariants = (product.product_variants ?? []).filter((variant) => variant.active);
+        if (!activeVariants.length) continue;
+        if (!next[product.id] || !activeVariants.some((variant) => variant.id === next[product.id])) {
+          next[product.id] = activeVariants[0].id;
+        }
+      }
+      return next;
+    });
+  }, [products]);
 
   useEffect(() => {
     setCart(readStoredCart());
@@ -183,30 +263,44 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
   }, [isCartDrawerOpen]);
 
   const cartItems = useMemo(() => {
-    return products
-      .map((product) => ({
-        product,
-        quantity: cart[product.id] ?? 0
-      }))
-      .filter((item) => item.quantity > 0);
+    const variantIndex = new Map<string, { product: ProductWithImages; variant: ProductVariant }>();
+    for (const product of products) {
+      for (const variant of product.product_variants ?? []) {
+        if (!variant.active) continue;
+        variantIndex.set(variant.id, { product, variant });
+      }
+    }
+
+    return Object.entries(cart)
+      .map(([variantId, quantity]) => {
+        const indexed = variantIndex.get(variantId);
+        if (!indexed || quantity <= 0) return null;
+        return {
+          variantId,
+          quantity,
+          product: indexed.product,
+          variant: indexed.variant
+        };
+      })
+      .filter((item): item is { variantId: string; quantity: number; product: ProductWithImages; variant: ProductVariant } => Boolean(item));
   }, [cart, products]);
 
   const total = useMemo(() => {
-    return cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    return cartItems.reduce((sum, item) => sum + Number(item.variant.price) * item.quantity, 0);
   }, [cartItems]);
 
   const cartQuantity = useMemo(() => {
     return cartItems.reduce((sum, item) => sum + item.quantity, 0);
   }, [cartItems]);
 
-  function updateQuantity(productId: string, quantity: number) {
+  function updateQuantity(variantId: string, quantity: number) {
     const safeQuantity = Math.max(0, Math.floor(Number.isFinite(quantity) ? quantity : 0));
     setCart((prev) => {
       const next = { ...prev };
       if (safeQuantity === 0) {
-        delete next[productId];
+        delete next[variantId];
       } else {
-        next[productId] = safeQuantity;
+        next[variantId] = safeQuantity;
       }
       return next;
     });
@@ -215,6 +309,7 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
   function toOrderItems(): CartItemInput[] {
     return cartItems.map((item) => ({
       productId: item.product.id,
+      variantId: item.variant.id,
       quantity: item.quantity
     }));
   }
@@ -273,6 +368,62 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
     setImageIndexByProduct((prev) => ({ ...prev, [productId]: normalizedIndex }));
   }
 
+  function syncImageWithVariant(product: ProductWithImages, variant: ProductVariant, syncModal: boolean) {
+    const preview = getColorPreview(variant);
+    if (!preview || preview.kind !== "image") return;
+
+    const images = normalizeProductImages(product.product_images);
+    const imageIndex = images.findIndex((image) => image.url === preview.value);
+    if (imageIndex < 0) return;
+
+    setProductImageIndex(product.id, imageIndex, images.length);
+    if (syncModal) {
+      setModalState((current) => {
+        if (!current || current.productId !== product.id) return current;
+        return { ...current, imageIndex };
+      });
+    }
+  }
+
+  function selectVariant(product: ProductWithImages, variantId: string, syncModalImage = false) {
+    const activeVariants = (product.product_variants ?? []).filter((variant) => variant.active);
+    const selected = activeVariants.find((variant) => variant.id === variantId);
+    if (!selected) return;
+
+    setSelectedVariantByProduct((current) => ({ ...current, [product.id]: selected.id }));
+    syncImageWithVariant(product, selected, syncModalImage);
+  }
+
+  function selectColor(product: ProductWithImages, colorId: string, syncModalImage = false) {
+    const activeVariants = (product.product_variants ?? []).filter((variant) => variant.active);
+    const currentVariantId = selectedVariantByProduct[product.id];
+    const currentVariant = activeVariants.find((variant) => variant.id === currentVariantId) ?? null;
+
+    const byColor = activeVariants.filter((variant) => variant.product_color_id === colorId);
+    if (!byColor.length) return;
+
+    const nextVariant =
+      byColor.find((variant) => variant.size_id === currentVariant?.size_id) ??
+      byColor.find((variant) => variant.id === currentVariantId) ??
+      byColor[0];
+
+    selectVariant(product, nextVariant.id, syncModalImage);
+  }
+
+  function selectSize(product: ProductWithImages, sizeId: string, syncModalImage = false) {
+    const activeVariants = (product.product_variants ?? []).filter((variant) => variant.active);
+    const currentVariantId = selectedVariantByProduct[product.id];
+    const currentVariant = activeVariants.find((variant) => variant.id === currentVariantId) ?? null;
+
+    const nextVariant =
+      activeVariants.find((variant) => variant.product_color_id === currentVariant?.product_color_id && variant.size_id === sizeId) ??
+      activeVariants.find((variant) => variant.size_id === sizeId) ??
+      null;
+
+    if (!nextVariant) return;
+    selectVariant(product, nextVariant.id, syncModalImage);
+  }
+
   function openProductModal(productId: string, imageIndex: number) {
     setModalState({ productId, imageIndex });
   }
@@ -284,7 +435,17 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
 
   const modalImages = useMemo(() => normalizeProductImages(modalProduct?.product_images), [modalProduct]);
   const modalCurrentIndex = getSafeImageIndex(modalImages.length, modalState?.imageIndex ?? 0);
-  const modalQuantity = modalProduct ? cart[modalProduct.id] ?? 0 : 0;
+  const modalActiveVariants = (modalProduct?.product_variants ?? []).filter((variant) => variant.active);
+  const modalSelectedVariantId = modalProduct
+    ? selectedVariantByProduct[modalProduct.id] ?? modalActiveVariants[0]?.id ?? ""
+    : "";
+  const modalSelectedVariant = modalActiveVariants.find((variant) => variant.id === modalSelectedVariantId) ?? null;
+  const modalColorOptions = getColorOptions(modalActiveVariants);
+  const modalSelectedColorId = modalSelectedVariant?.product_color_id ?? modalColorOptions[0]?.id ?? "";
+  const modalVariantsByColor = modalActiveVariants.filter((variant) => variant.product_color_id === modalSelectedColorId);
+  const modalSizeOptions = getSizeOptions(modalVariantsByColor.length ? modalVariantsByColor : modalActiveVariants);
+  const modalHasMultipleSizes = modalSizeOptions.length > 1;
+  const modalQuantity = modalSelectedVariantId ? cart[modalSelectedVariantId] ?? 0 : 0;
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/40 px-4 py-10">
@@ -325,10 +486,18 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
               {!productsLoading && !loadError && (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {products.map((product) => {
-                    const quantity = cart[product.id] ?? 0;
                     const images = normalizeProductImages(product.product_images);
                     const currentIndex = getSafeImageIndex(images.length, imageIndexByProduct[product.id] ?? 0);
                     const currentImage = images[currentIndex]?.url;
+                    const activeVariants = (product.product_variants ?? []).filter((variant) => variant.active);
+                    const selectedVariantId = selectedVariantByProduct[product.id] ?? activeVariants[0]?.id ?? "";
+                    const selectedVariant = activeVariants.find((variant) => variant.id === selectedVariantId) ?? null;
+                    const colorOptions = getColorOptions(activeVariants);
+                    const selectedColorId = selectedVariant?.product_color_id ?? colorOptions[0]?.id ?? "";
+                    const variantsBySelectedColor = activeVariants.filter((variant) => variant.product_color_id === selectedColorId);
+                    const sizeOptions = getSizeOptions(variantsBySelectedColor.length ? variantsBySelectedColor : activeVariants);
+                    const hasMultipleSizes = sizeOptions.length > 1;
+                    const quantity = selectedVariant ? cart[selectedVariant.id] ?? 0 : 0;
 
                     return (
                       <Card key={product.id} className="overflow-hidden">
@@ -391,7 +560,66 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
                               <h2 className="font-medium">{product.name}</h2>
                               <p className="line-clamp-2 text-sm text-muted-foreground">{product.description}</p>
                             </div>
-                            <Badge>{formatCurrency(product.price)}</Badge>
+                            <Badge>{formatCurrency(Number(selectedVariant?.price ?? product.price))}</Badge>
+                          </div>
+
+                          <div className="grid gap-2">
+                            {colorOptions.length > 0 && (
+                              <div className="grid gap-1.5">
+                                <span className="text-xs text-muted-foreground">Cores disponíveis</span>
+                                <div className="flex flex-wrap gap-2">
+                                  {colorOptions.map((color) => (
+                                    <button
+                                      key={color.id}
+                                      type="button"
+                                      className={`relative size-7 rounded-full border transition ${color.id === selectedColorId ? "ring-2 ring-primary ring-offset-2" : ""
+                                        }`}
+                                      onClick={() => selectColor(product, color.id)}
+                                      aria-label={`Selecionar cor ${color.name}`}
+                                      title={color.name}
+                                    >
+                                      {color.preview?.kind === "image" ? (
+                                        <img
+                                          src={color.preview.value}
+                                          alt=""
+                                          className="size-full rounded-full object-cover"
+                                          aria-hidden
+                                        />
+                                      ) : (
+                                        <span
+                                          className="block size-full rounded-full"
+                                          style={{ backgroundColor: color.preview?.value ?? "#e5e7eb" }}
+                                          aria-hidden
+                                        />
+                                      )}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {hasMultipleSizes ? (
+                              <div className="grid gap-1.5">
+                                <span className="text-xs text-muted-foreground">Tamanho</span>
+                                <Select
+                                  value={selectedVariant?.size_id ?? ""}
+                                  onValueChange={(sizeId) => selectSize(product, sizeId)}
+                                  disabled={!sizeOptions.length}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecione o tamanho" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {sizeOptions.map((size) => (
+                                      <SelectItem key={size.id} value={size.id}>
+                                        {size.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Tamanho único</span>
+                            )}
                           </div>
 
                           {images.length > 1 && (
@@ -413,10 +641,21 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
                               type="number"
                               min={0}
                               value={quantity}
-                              onChange={(event) => updateQuantity(product.id, Number(event.target.value))}
+                              onChange={(event) => {
+                                if (!selectedVariant) return;
+                                updateQuantity(selectedVariant.id, Number(event.target.value));
+                              }}
                               className="max-w-24"
+                              disabled={!selectedVariant}
                             />
-                            <Button variant="outline" onClick={() => updateQuantity(product.id, quantity + 1)}>
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                if (!selectedVariant) return;
+                                updateQuantity(selectedVariant.id, quantity + 1);
+                              }}
+                              disabled={!selectedVariant}
+                            >
                               +1
                             </Button>
                           </div>
@@ -481,11 +720,14 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
                   <>
                     <div className="grid gap-2">
                       {cartItems.map((item) => (
-                        <div key={item.product.id} className="flex items-center justify-between gap-3 text-sm">
-                          <span>
-                            {item.quantity}x {item.product.name}
+                        <div key={item.variantId} className="flex items-center justify-between gap-3 text-sm">
+                          <span className="grid">
+                            <span>
+                              {item.quantity}x {item.product.name}
+                            </span>
+                            <span className="text-xs text-muted-foreground">{getVariantLabel(item.variant)}</span>
                           </span>
-                          <span className="font-medium">{formatCurrency(item.product.price * item.quantity)}</span>
+                          <span className="font-medium">{formatCurrency(Number(item.variant.price) * item.quantity)}</span>
                         </div>
                       ))}
                     </div>
@@ -543,9 +785,9 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
                         setModalState((current) =>
                           current
                             ? {
-                                ...current,
-                                imageIndex: ((modalCurrentIndex - 1 + modalImages.length) % modalImages.length) || 0
-                              }
+                              ...current,
+                              imageIndex: ((modalCurrentIndex - 1 + modalImages.length) % modalImages.length) || 0
+                            }
                             : current
                         )
                       }
@@ -561,9 +803,9 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
                         setModalState((current) =>
                           current
                             ? {
-                                ...current,
-                                imageIndex: ((modalCurrentIndex + 1) % modalImages.length) || 0
-                              }
+                              ...current,
+                              imageIndex: ((modalCurrentIndex + 1) % modalImages.length) || 0
+                            }
                             : current
                         )
                       }
@@ -579,7 +821,11 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
                   <h2 className="text-xl font-semibold">{modalProduct.name}</h2>
                   <p className="text-sm text-muted-foreground">{modalProduct.description}</p>
                 </div>
-                <Badge>{formatCurrency(modalProduct.price)}</Badge>
+                <Badge>
+                  {formatCurrency(
+                    Number(modalSelectedVariant?.price ?? modalProduct.price)
+                  )}
+                </Badge>
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -598,15 +844,75 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
                     ))}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-3">
+                  {modalColorOptions.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Cores:</span>
+                      <div className="flex flex-wrap gap-2">
+                        {modalColorOptions.map((color) => (
+                          <button
+                            key={color.id}
+                            type="button"
+                            className={`relative size-7 rounded-full border transition ${color.id === modalSelectedColorId ? "ring-2 ring-primary ring-offset-2" : ""
+                              }`}
+                            onClick={() => selectColor(modalProduct, color.id, true)}
+                            aria-label={`Selecionar cor ${color.name}`}
+                            title={color.name}
+                          >
+                            {color.preview?.kind === "image" ? (
+                              <img
+                                src={color.preview.value}
+                                alt=""
+                                className="size-full rounded-full object-cover"
+                                aria-hidden
+                              />
+                            ) : (
+                              <span
+                                className="block size-full rounded-full"
+                                style={{ backgroundColor: color.preview?.value ?? "#e5e7eb" }}
+                                aria-hidden
+                              />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {modalHasMultipleSizes ? (
+                    <Select value={modalSelectedVariant?.size_id ?? ""} onValueChange={(sizeId) => selectSize(modalProduct, sizeId, true)}>
+                      <SelectTrigger className="min-w-44">
+                        <SelectValue placeholder="Selecione o tamanho" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {modalSizeOptions.map((size) => (
+                          <SelectItem key={size.id} value={size.id}>
+                            {size.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Tamanho único</span>
+                  )}
                   <Input
                     type="number"
                     min={0}
                     value={modalQuantity}
-                    onChange={(event) => updateQuantity(modalProduct.id, Number(event.target.value))}
+                    onChange={(event) => {
+                      if (!modalSelectedVariantId) return;
+                      updateQuantity(modalSelectedVariantId, Number(event.target.value));
+                    }}
                     className="max-w-24"
+                    disabled={!modalSelectedVariantId}
                   />
-                  <Button variant="outline" onClick={() => updateQuantity(modalProduct.id, modalQuantity + 1)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (!modalSelectedVariantId) return;
+                      updateQuantity(modalSelectedVariantId, modalQuantity + 1);
+                    }}
+                    disabled={!modalSelectedVariantId}
+                  >
                     +1
                   </Button>
                 </div>
