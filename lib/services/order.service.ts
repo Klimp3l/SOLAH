@@ -110,9 +110,8 @@ export class OrderService {
         total: Number(order.total),
         items: snapshots.map((item) => {
           const variant = variantMap.get(item.product_variant_id);
-          const productName = Array.isArray(variant?.products)
-            ? variant.products[0]?.name
-            : variant?.products?.name;
+          const variantProduct = Array.isArray(variant?.products) ? variant.products[0] : variant?.products;
+          const productName = variantProduct?.name;
           return {
             name: productName ?? "Produto",
             quantity: item.quantity,
