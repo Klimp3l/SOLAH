@@ -1,7 +1,7 @@
 import {
   sendOrderCreatedEmail,
-  sendOrderShippedEmail,
-  sendPaymentConfirmedEmail
+  sendOrderStatusUpdatedEmail,
+  sendOrderTrackingCodeEmail
 } from "@/lib/adapters/email.adapter";
 
 type OrderEventPayload = {
@@ -10,13 +10,27 @@ type OrderEventPayload = {
 };
 
 export async function onOrderCreated(payload: OrderEventPayload): Promise<void> {
-  await sendOrderCreatedEmail({ orderId: payload.orderId, email: payload.userEmail });
+  await sendOrderCreatedEmail({
+    orderId: payload.orderId,
+    email: payload.userEmail,
+    total: 0,
+    items: [],
+    paymentInstructions: "Em breve enviaremos as instruções de pagamento."
+  });
 }
 
 export async function onPaymentConfirmed(payload: OrderEventPayload): Promise<void> {
-  await sendPaymentConfirmedEmail({ orderId: payload.orderId, email: payload.userEmail });
+  await sendOrderStatusUpdatedEmail({
+    orderId: payload.orderId,
+    email: payload.userEmail,
+    status: "pago"
+  });
 }
 
 export async function onOrderShipped(payload: OrderEventPayload): Promise<void> {
-  await sendOrderShippedEmail({ orderId: payload.orderId, email: payload.userEmail });
+  await sendOrderTrackingCodeEmail({
+    orderId: payload.orderId,
+    email: payload.userEmail,
+    trackingCode: "Acompanhe no painel"
+  });
 }

@@ -30,6 +30,8 @@ type ProductResponse = {
 type AuthMeResponse = {
   data: {
     id: string;
+    phone?: string | null;
+    name?: string | null;
     role?: UserRole | null;
   } | null;
 };
@@ -155,6 +157,7 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
   const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<Record<string, string>>({});
   const [productsLoading, setProductsLoading] = useState(true);
   const [submittingOrder, setSubmittingOrder] = useState(false);
+  const [checkoutPhone, setCheckoutPhone] = useState("");
   const [loadError, setLoadError] = useState("");
   const [cartHydrated, setCartHydrated] = useState(false);
   const [imageIndexByProduct, setImageIndexByProduct] = useState<Record<string, number>>({});
@@ -328,20 +331,21 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
   }
 
   async function createOrder() {
-    const payload = createOrderPayload(toOrderItems());
+    const payload = createOrderPayload(toOrderItems(), checkoutPhone.trim());
     const result = await submitOrderRequest(fetch, payload);
     const createdOrderId = result.data.id;
     setCart({});
     toast.success("Pedido criado com sucesso.");
-    if (result.whatsappLink) {
-      window.open(result.whatsappLink, "_blank", "noopener,noreferrer");
-    }
     window.location.href = `/meus-pedidos?pedido=${encodeURIComponent(createdOrderId)}`;
   }
 
   async function handleFinalizeOrder() {
     if (cartItems.length === 0) {
       toast.error("Adicione ao menos um item antes de finalizar.");
+      return;
+    }
+    if (checkoutPhone.trim().length < 10) {
+      toast.error("Informe um telefone válido para finalizar.");
       return;
     }
 
@@ -355,6 +359,9 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
 
       const authBody = (await authResponse.json().catch(() => null)) as AuthMeResponse | null;
       const intent = resolveFinalizeIntent(authBody?.data ?? null, CHECKOUT_PATH);
+      if (authBody?.data?.phone && !checkoutPhone) {
+        setCheckoutPhone(authBody.data.phone);
+      }
       if (intent.action === "redirect_to_login") {
         window.location.href = intent.loginUrl;
         return;
@@ -820,6 +827,21 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
                       <span>Total</span>
                       <span className="font-semibold">{formatCurrency(total)}</span>
                     </div>
+                    <div className="grid gap-1">
+                      <label htmlFor="checkout-phone" className="text-sm font-medium">
+                        Telefone para contato
+                      </label>
+                      <Input
+                        id="checkout-phone"
+                        type="tel"
+                        placeholder="(00) 00000-0000"
+                        value={checkoutPhone}
+                        onChange={(event) => setCheckoutPhone(event.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Obrigatório para receber atualizações e WhatsApp manual da equipe.
+                      </p>
+                    </div>
                     <Button
                       type="button"
                       size="lg"
@@ -1145,6 +1167,28 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
             </div>
           </div>
         )}
+
+        <section id="contato" className="rounded-xl border bg-card p-4 md:p-6">
+          <h3 className="text-lg font-semibold">Contato</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Precisa de ajuda com pedido ou pagamento? Fale com nosso time.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button asChild variant="outline" size="sm">
+              <a href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "5541999999999"}`} target="_blank" rel="noreferrer">
+                WhatsApp
+              </a>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <a href="mailto:contato@solah.store">Email</a>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <a href="https://instagram.com" target="_blank" rel="noreferrer">
+                Instagram
+              </a>
+            </Button>
+          </div>
+        </section>
       </section>
     </main>
   );

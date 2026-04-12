@@ -15,7 +15,8 @@ export function makeOrderService() {
   const supabase = createSupabaseAdminClient();
   const productRepository = new ProductRepository(supabase);
   const orderRepository = new OrderRepository(supabase);
-  return new OrderService({ orderRepository, productRepository });
+  const userRepository = new UserRepository(supabase);
+  return new OrderService({ orderRepository, productRepository, userRepository });
 }
 
 export function makeUserRepository() {

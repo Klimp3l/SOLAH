@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { CreditCard, PackageCheck, ShoppingBag } from "lucide-react";
+import { CreditCard, MessageCircle, PackageCheck, ShoppingBag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -116,6 +116,13 @@ export function StorefrontHeader({ activeView }: StorefrontHeaderProps) {
           >
             <PackageCheck className="size-4" />
             Meus pedidos
+          </Link>
+          <Link
+            href="/#contato"
+            className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+          >
+            <MessageCircle className="size-4" />
+            Contato
           </Link>
         </nav>
       </div>

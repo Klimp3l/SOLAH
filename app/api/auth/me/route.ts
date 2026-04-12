@@ -11,11 +11,16 @@ export async function GET() {
       return jsonOk({ data: null });
     }
 
-    const role = await makeUserRepository().getRoleByUserId(data.user.id);
+    const userRepository = makeUserRepository();
+    const role = await userRepository.getRoleByUserId(data.user.id);
+    const profile = await userRepository.getById(data.user.id);
     return jsonOk({
       data: {
-        ...data.user,
-        role
+        id: data.user.id,
+        email: data.user.email,
+        role,
+        phone: profile?.phone ?? null,
+        name: profile?.name ?? null
       }
     });
   } catch (error) {

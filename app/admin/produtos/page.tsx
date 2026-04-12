@@ -620,6 +620,7 @@ export default function AdminProductsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Preview</TableHead>
                   <TableHead>Produto</TableHead>
                   <TableHead>Categoria / Tipo</TableHead>
                   <TableHead>Preço</TableHead>
@@ -637,6 +638,28 @@ export default function AdminProductsPage() {
                       openEditModal(product);
                     }}
                   >
+                    <TableCell>
+                      <div className="w-28 rounded-lg border p-2">
+                        <div className="aspect-square overflow-hidden rounded-md bg-muted">
+                          {product.product_images?.[0]?.url ? (
+                            <img
+                              src={product.product_images[0].url}
+                              alt={`Preview de ${product.name}`}
+                              className="size-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex size-full items-center justify-center text-[10px] text-muted-foreground">
+                              Sem imagem
+                            </div>
+                          )}
+                        </div>
+                        <p className="mt-1 truncate text-xs font-medium">{product.name}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          R$ {Number(product.price).toFixed(2)}
+                        </p>
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <div className="grid gap-1">
                         <p className="font-medium">{product.name}</p>

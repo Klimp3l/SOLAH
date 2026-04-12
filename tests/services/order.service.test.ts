@@ -11,6 +11,7 @@ describe("order.service", () => {
         status: "aguardando_pagamento",
         idempotency_key: "abc12345",
         tracking_code: null,
+        payment_proof_url: null,
         created_at: new Date().toISOString()
       }),
       createWithItems: vi.fn()
@@ -19,16 +20,22 @@ describe("order.service", () => {
     const productRepository = {
       getVariantsByIds: vi.fn()
     };
+    const userRepository = {
+      updatePhone: vi.fn(),
+      getById: vi.fn()
+    };
 
     const service = new OrderService({
       orderRepository: orderRepository as never,
       productRepository: productRepository as never,
+      userRepository: userRepository as never,
       whatsappLinkGenerator: (orderId) => `link:${orderId}`
     });
 
     const result = await service.createOrder({
       userId: "user-1",
       idempotencyKey: "abc12345",
+      phone: "41999999999",
       items: [
         {
           productId: "11111111-1111-1111-1111-111111111111",
@@ -51,6 +58,7 @@ describe("order.service", () => {
       status: "aguardando_pagamento",
       idempotency_key: "token-9999",
       tracking_code: null,
+      payment_proof_url: null,
       created_at: new Date().toISOString()
     };
 
@@ -74,16 +82,22 @@ describe("order.service", () => {
         }
       ])
     };
+    const userRepository = {
+      updatePhone: vi.fn(),
+      getById: vi.fn().mockResolvedValue(null)
+    };
 
     const service = new OrderService({
       orderRepository: orderRepository as never,
       productRepository: productRepository as never,
+      userRepository: userRepository as never,
       whatsappLinkGenerator: (orderId) => `link:${orderId}`
     });
 
     await service.createOrder({
       userId: "user-2",
       idempotencyKey: "token-9999",
+      phone: "41999999999",
       items: [
         {
           productId: "11111111-1111-1111-1111-111111111111",

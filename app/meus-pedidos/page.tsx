@@ -2,16 +2,15 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Fragment, Suspense, useEffect, useMemo, useState } from "react";
-import { Loader2, RefreshCcw } from "lucide-react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { CheckCircle2, Loader2, RefreshCcw, Upload } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StorefrontHeader } from "@/components/storefront/storefront-header";
-import type { Order } from "@/types/domain";
+import { ORDER_STATUS, type Order, type OrderStatus } from "@/types/domain";
 
 type ApiError = {
   message?: string;
@@ -38,6 +37,7 @@ type CustomerOrder = Order & {
 };
 
 const LOGIN_URL = "/auth/login?next=%2Fmeus-pedidos";
+const ORDER_STEPS: OrderStatus[] = ORDER_STATUS.filter((status) => status !== "cancelado");
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -62,6 +62,8 @@ function CustomerOrdersPageContent() {
   const [loading, setLoading] = useState(false);
   const [feedbackError, setFeedbackError] = useState("");
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [uploadingOrderId, setUploadingOrderId] = useState<string | null>(null);
+  const [openingProofOrderId, setOpeningProofOrderId] = useState<string | null>(null);
 
   const totalSpent = useMemo(() => orders.reduce((sum, order) => sum + Number(order.total), 0), [orders]);
 
@@ -106,6 +108,56 @@ function CustomerOrdersPageContent() {
     setExpandedOrderId(hasHighlightedOrder ? highlightedOrderId : null);
   }, [highlightedOrderId, orders]);
 
+  async function uploadPaymentProof(orderId: string, file: File | null) {
+    if (!file) return;
+    setUploadingOrderId(orderId);
+    const formData = new FormData();
+    formData.set("file", file);
+
+    try {
+      const response = await fetch(`/api/orders/${orderId}/payment-proof`, {
+        method: "POST",
+        body: formData,
+        credentials: "include"
+      });
+      const payload = (await response.json().catch(() => null)) as (ApiResponse<Order> & ApiError) | null;
+      if (!response.ok) {
+        throw new Error(payload?.message ?? "Não foi possível enviar o comprovante.");
+      }
+      setOrders((prev) => prev.map((order) => (order.id === orderId ? { ...order, ...payload?.data } : order)));
+    } catch (error) {
+      setFeedbackError(error instanceof Error ? error.message : "Erro ao enviar comprovante.");
+    } finally {
+      setUploadingOrderId(null);
+    }
+  }
+
+  async function openPaymentProof(orderId: string) {
+    setOpeningProofOrderId(orderId);
+    try {
+      const response = await fetch(`/api/orders/${orderId}/payment-proof/view`, {
+        method: "GET",
+        credentials: "include"
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | (ApiResponse<{ signedUrl: string; expiresIn: number }> & ApiError)
+        | null;
+      if (!response.ok || !payload?.data?.signedUrl) {
+        throw new Error(payload?.message ?? "Não foi possível abrir o comprovante.");
+      }
+      window.open(payload.data.signedUrl, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      setFeedbackError(error instanceof Error ? error.message : "Erro ao abrir comprovante.");
+    } finally {
+      setOpeningProofOrderId(null);
+    }
+  }
+
+  function getStepIndex(status: OrderStatus) {
+    const index = ORDER_STEPS.indexOf(status);
+    return index < 0 ? 0 : index;
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/40">
       <StorefrontHeader activeView="pedidos" />
@@ -146,81 +198,128 @@ function CustomerOrdersPageContent() {
                 <Skeleton className="h-10 w-full" />
               </div>
             ) : orders.length ? (
-              <div className="overflow-x-auto rounded-xl border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Pedido</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Criado em</TableHead>
-                      <TableHead>Rastreio</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {orders.map((order) => {
-                      const isExpanded = expandedOrderId === order.id;
-                      const orderItems = order.order_items ?? [];
+              <div className="grid gap-4">
+                {orders.map((order) => {
+                  const isExpanded = expandedOrderId === order.id;
+                  const orderItems = order.order_items ?? [];
+                  const currentStep = getStepIndex(order.status);
+                  const stepTail = ORDER_STEPS.slice(currentStep + 1);
 
-                      return (
-                        <Fragment key={order.id}>
-                          <TableRow key={order.id}>
-                            <TableCell className="font-medium">{order.id.slice(0, 8)}</TableCell>
-                            <TableCell>
-                              <Badge variant="secondary">{order.status.replaceAll("_", " ")}</Badge>
-                            </TableCell>
-                            <TableCell>{formatCurrency(Number(order.total))}</TableCell>
-                            <TableCell>{formatDate(order.created_at)}</TableCell>
-                            <TableCell>{order.tracking_code ?? "—"}</TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                  setExpandedOrderId((current) => (current === order.id ? null : order.id))
-                                }
-                              >
-                                {isExpanded ? "Ocultar detalhes" : "Ver detalhes"}
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                          {isExpanded && (
-                            <TableRow key={`${order.id}-details`}>
-                              <TableCell colSpan={6} className="bg-muted/20">
-                                <div className="grid gap-2 py-1">
-                                  <p className="text-sm font-medium">Produtos do pedido</p>
-                                  {orderItems.length ? (
-                                    <div className="grid gap-1 text-sm text-muted-foreground">
-                                      {orderItems.map((item, index) => (
-                                        <div
-                                          key={`${order.id}-${item.products?.name ?? "produto"}-${index}`}
-                                          className="flex flex-wrap items-center justify-between gap-2"
-                                        >
-                                          <span>{item.products?.name ?? "Produto"}</span>
-                                          <span>
-                                            {(item.product_variants?.product_colors?.name ?? "Cor")} /{" "}
-                                            {(item.product_variants?.sizes?.name ?? "Tam")} ·{" "}
-                                            {item.quantity}x {formatCurrency(Number(item.price))}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <p className="text-sm text-muted-foreground">
-                                      Não foi possível carregar os itens deste pedido.
-                                    </p>
-                                  )}
-                                </div>
-                              </TableCell>
-                            </TableRow>
+                  return (
+                    <Card key={order.id} className="border">
+                      <CardContent className="grid gap-4 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="grid gap-1">
+                            <p className="text-sm font-semibold">Pedido #{order.id.slice(0, 8)}</p>
+                            <p className="text-xs text-muted-foreground">{formatDate(order.created_at)}</p>
+                          </div>
+                          <Badge variant="secondary">{order.status.replaceAll("_", " ")}</Badge>
+                        </div>
+
+                        <div className="grid gap-2 rounded-lg border p-3">
+                          <p className="text-xs font-medium text-muted-foreground">Etapa atual</p>
+                          <div className="flex items-center gap-2 text-sm font-medium">
+                            <CheckCircle2 className="size-4 text-primary" />
+                            {ORDER_STEPS[currentStep].replaceAll("_", " ")}
+                          </div>
+                          {stepTail.length > 0 && (
+                            <div className="grid gap-1 text-xs text-muted-foreground">
+                              {stepTail.map((step) => (
+                                <p key={`${order.id}-${step}`}>Próxima: {step.replaceAll("_", " ")}</p>
+                              ))}
+                            </div>
                           )}
-                        </Fragment>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                        </div>
+
+                        <div className="grid gap-1 text-sm">
+                          <p>
+                            <span className="text-muted-foreground">Total:</span> {formatCurrency(Number(order.total))}
+                          </p>
+                          <p>
+                            <span className="text-muted-foreground">Rastreio:</span> {order.tracking_code ?? "—"}
+                          </p>
+                        </div>
+
+                        <div className="grid gap-2 rounded-lg border p-3">
+                          <p className="text-sm font-medium">Comprovante de pagamento</p>
+                          {order.payment_proof_url ? (
+                            <button
+                              type="button"
+                              onClick={() => void openPaymentProof(order.id)}
+                              className="w-fit text-sm text-primary underline underline-offset-4"
+                              disabled={openingProofOrderId === order.id}
+                            >
+                              {openingProofOrderId === order.id ? "Abrindo..." : "Ver comprovante enviado"}
+                            </button>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              Ainda não há comprovante enviado para este pedido.
+                            </p>
+                          )}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <input
+                              type="file"
+                              accept="image/*,.pdf"
+                              onChange={(event) => void uploadPaymentProof(order.id, event.target.files?.[0] ?? null)}
+                              className="text-xs"
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={uploadingOrderId === order.id}
+                            >
+                              {uploadingOrderId === order.id ? (
+                                <Loader2 className="size-4 animate-spin" />
+                              ) : (
+                                <Upload className="size-4" />
+                              )}
+                              Enviar comprovante
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setExpandedOrderId((current) => (current === order.id ? null : order.id))}
+                          >
+                            {isExpanded ? "Ocultar detalhes" : "Ver detalhes"}
+                          </Button>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="grid gap-2 rounded-lg bg-muted/20 p-3">
+                            <p className="text-sm font-medium">Produtos do pedido</p>
+                            {orderItems.length ? (
+                              <div className="grid gap-1 text-sm text-muted-foreground">
+                                {orderItems.map((item, index) => (
+                                  <div
+                                    key={`${order.id}-${item.products?.name ?? "produto"}-${index}`}
+                                    className="flex flex-wrap items-center justify-between gap-2"
+                                  >
+                                    <span>{item.products?.name ?? "Produto"}</span>
+                                    <span>
+                                      {(item.product_variants?.product_colors?.name ?? "Cor")} /{" "}
+                                      {(item.product_variants?.sizes?.name ?? "Tam")} · {item.quantity}x{" "}
+                                      {formatCurrency(Number(item.price))}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">
+                                Não foi possível carregar os itens deste pedido.
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Você ainda não possui pedidos.</p>

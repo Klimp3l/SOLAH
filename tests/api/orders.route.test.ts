@@ -41,7 +41,6 @@ describe("POST /api/orders", () => {
   it("retorna 201 para novo pedido", async () => {
     createOrderMock.mockResolvedValue({
       idempotent: false,
-      whatsappLink: "https://wa.me/5511999999999",
       order: { id: "order-1", total: 100 }
     });
 
@@ -50,6 +49,7 @@ describe("POST /api/orders", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         idempotencyKey: "abc12345",
+        phone: "41999999999",
         items: [
           {
             productId: "550e8400-e29b-41d4-a716-446655440000",
@@ -72,6 +72,7 @@ describe("POST /api/orders", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         idempotencyKey: "abc12345",
+        phone: "41999999999",
         items: [
           {
             productId: "550e8400-e29b-41d4-a716-446655440000",

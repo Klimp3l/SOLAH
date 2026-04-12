@@ -12,14 +12,14 @@ export async function POST(request: Request) {
     const result = await orderService.createOrder({
       userId: auth.userId,
       idempotencyKey: payload.idempotencyKey,
+      phone: payload.phone,
       items: payload.items
     });
 
     return jsonOk(
       {
         data: result.order,
-        meta: { idempotent: result.idempotent },
-        whatsappLink: result.whatsappLink
+        meta: { idempotent: result.idempotent }
       },
       result.idempotent ? 200 : 201
     );

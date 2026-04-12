@@ -1,9 +1,7 @@
 import Link from "next/link";
-import { Box, ChevronRight, PackageCheck, ShoppingBag } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Box, ChevronRight, ShoppingBag, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 
 const quickLinks = [
   {
@@ -17,6 +15,12 @@ const quickLinks = [
     description: "Atualize status e rastreio com visão operacional centralizada.",
     href: "/admin/pedidos",
     icon: ShoppingBag
+  },
+  {
+    title: "Clientes",
+    description: "Gerencie dados de contato e comunicação em email/WhatsApp.",
+    href: "/admin/clientes",
+    icon: Users
   }
 ];
 

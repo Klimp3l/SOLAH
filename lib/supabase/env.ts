@@ -3,10 +3,11 @@ export function getSupabaseEnv() {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const productImagesBucket = process.env.SUPABASE_PRODUCT_IMAGES_BUCKET ?? "product-images";
+  const paymentProofsBucket = process.env.SUPABASE_PAYMENT_PROOFS_BUCKET ?? "payment-proofs";
 
   if (!url || !anonKey) {
     throw new Error("Variáveis NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY são obrigatórias.");
   }
 
-  return { url, anonKey, serviceRoleKey, productImagesBucket };
+  return { url, anonKey, serviceRoleKey, productImagesBucket, paymentProofsBucket };
 }

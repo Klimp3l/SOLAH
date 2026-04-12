@@ -25,8 +25,7 @@ describe("checkout-flow", () => {
       Response.json(
         {
           data: { id: "order-1" },
-          meta: { idempotent: false },
-          whatsappLink: "https://wa.me/5511999999999"
+          meta: { idempotent: false }
         },
         { status: 201 }
       )
@@ -39,6 +38,7 @@ describe("checkout-flow", () => {
           quantity: 2
         }
       ],
+      "41999999999",
       "idem-12345"
     );
 

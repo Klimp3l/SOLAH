@@ -95,6 +95,7 @@ export type Order = {
   total: number;
   status: OrderStatus;
   tracking_code: string | null;
+  payment_proof_url: string | null;
   idempotency_key: string;
   created_at: string;
 };

@@ -10,6 +10,14 @@ type GoogleLoginButtonProps = {
   nextPath: string;
 };
 
+function normalizePublicUrl(value: string | undefined) {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("localhost")) return `http://${trimmed}`;
+  return `https://${trimmed}`;
+}
+
 export function GoogleLoginButton({ nextPath }: GoogleLoginButtonProps) {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -20,8 +28,11 @@ export function GoogleLoginButton({ nextPath }: GoogleLoginButtonProps) {
 
     try {
       const supabase = createSupabaseBrowserClient();
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
-      const redirectBase = appUrl && /^https?:\/\//.test(appUrl) ? appUrl : window.location.origin;
+      const redirectBase =
+        normalizePublicUrl(process.env.NEXT_PUBLIC_SITE_URL) ??
+        normalizePublicUrl(process.env.NEXT_PUBLIC_VERCEL_URL) ??
+        normalizePublicUrl(process.env.NEXT_PUBLIC_APP_URL) ??
+        window.location.origin;
       const redirectTo = new URL("/auth/callback", redirectBase);
       redirectTo.searchParams.set("next", nextPath);
 

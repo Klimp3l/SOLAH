@@ -20,7 +20,6 @@ export type OrderSuccessResponse = {
   meta?: {
     idempotent: boolean;
   };
-  whatsappLink?: string;
 };
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
@@ -53,9 +52,14 @@ export function resolveFinalizeIntent(user: AuthenticatedUser | null, nextPath: 
   return { action: "submit_order" };
 }
 
-export function createOrderPayload(items: CartItemInput[], idempotencyKey = crypto.randomUUID()) {
+export function createOrderPayload(
+  items: CartItemInput[],
+  phone: string,
+  idempotencyKey = crypto.randomUUID()
+) {
   return {
     idempotencyKey,
+    phone,
     items
   };
 }

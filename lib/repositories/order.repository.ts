@@ -8,7 +8,7 @@ export class OrderRepository {
   async listAll() {
     const { data, error } = await this.supabase
       .from("orders")
-      .select("id,user_id,total,status,tracking_code,idempotency_key,created_at")
+      .select("id,user_id,total,status,tracking_code,payment_proof_url,idempotency_key,created_at,users(email,name,phone)")
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -19,7 +19,7 @@ export class OrderRepository {
     const { data, error } = await this.supabase
       .from("orders")
       .select(
-        "id,user_id,total,status,tracking_code,idempotency_key,created_at,order_items(quantity,price,products(name),product_variants(id,product_colors(name),sizes(name)))"
+        "id,user_id,total,status,tracking_code,payment_proof_url,idempotency_key,created_at,order_items(quantity,price,products(name),product_variants(id,product_colors(name),sizes(name)))"
       )
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
@@ -31,7 +31,7 @@ export class OrderRepository {
   async findByUserAndIdempotencyKey(userId: string, idempotencyKey: string) {
     const { data, error } = await this.supabase
       .from("orders")
-      .select("id,user_id,total,status,tracking_code,idempotency_key,created_at")
+      .select("id,user_id,total,status,tracking_code,payment_proof_url,idempotency_key,created_at")
       .eq("user_id", userId)
       .eq("idempotency_key", idempotencyKey)
       .maybeSingle();
@@ -55,7 +55,7 @@ export class OrderRepository {
         status: input.status,
         idempotency_key: input.idempotencyKey
       })
-      .select("id,user_id,total,status,tracking_code,idempotency_key,created_at")
+      .select("id,user_id,total,status,tracking_code,payment_proof_url,idempotency_key,created_at")
       .single();
 
     if (orderError) throw orderError;
@@ -79,7 +79,7 @@ export class OrderRepository {
       .from("orders")
       .update({ status })
       .eq("id", orderId)
-      .select("id,user_id,total,status,tracking_code,idempotency_key,created_at")
+      .select("id,user_id,total,status,tracking_code,payment_proof_url,idempotency_key,created_at")
       .single();
 
     if (error) throw error;
@@ -92,11 +92,47 @@ export class OrderRepository {
       .from("orders")
       .update({ tracking_code: trackingCode, status: "enviado" })
       .eq("id", orderId)
-      .select("id,user_id,total,status,tracking_code,idempotency_key,created_at")
+      .select("id,user_id,total,status,tracking_code,payment_proof_url,idempotency_key,created_at")
       .single();
 
     if (error) throw error;
     if (!data) throw new NotFoundError("Pedido não encontrado");
+    return data;
+  }
+
+  async updatePaymentProof(orderId: string, paymentProofPath: string) {
+    const { data, error } = await this.supabase
+      .from("orders")
+      .update({ payment_proof_url: paymentProofPath, status: "aguardando_comprovante" })
+      .eq("id", orderId)
+      .select("id,user_id,total,status,tracking_code,payment_proof_url,idempotency_key,created_at")
+      .single();
+
+    if (error) throw error;
+    if (!data) throw new NotFoundError("Pedido não encontrado");
+    return data;
+  }
+
+  async getById(orderId: string) {
+    const { data, error } = await this.supabase
+      .from("orders")
+      .select("id,user_id,total,status,tracking_code,payment_proof_url,idempotency_key,created_at")
+      .eq("id", orderId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async getByIdForUser(orderId: string, userId: string) {
+    const { data, error } = await this.supabase
+      .from("orders")
+      .select("id,user_id,total,status,tracking_code,payment_proof_url,idempotency_key,created_at")
+      .eq("id", orderId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) throw error;
     return data;
   }
 }
