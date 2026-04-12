@@ -20,7 +20,9 @@ export function GoogleLoginButton({ nextPath }: GoogleLoginButtonProps) {
 
     try {
       const supabase = createSupabaseBrowserClient();
-      const redirectTo = new URL("/auth/callback", window.location.origin);
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+      const redirectBase = appUrl && /^https?:\/\//.test(appUrl) ? appUrl : window.location.origin;
+      const redirectTo = new URL("/auth/callback", redirectBase);
       redirectTo.searchParams.set("next", nextPath);
 
       const { error } = await supabase.auth.signInWithOAuth({
