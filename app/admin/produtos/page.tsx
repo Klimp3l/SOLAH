@@ -617,29 +617,12 @@ export default function AdminProductsPage() {
               <Skeleton className="h-12 w-full" />
             </div>
           ) : products.length ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Preview</TableHead>
-                  <TableHead>Produto</TableHead>
-                  <TableHead>Categoria / Tipo</TableHead>
-                  <TableHead>Preço</TableHead>
-                  <TableHead>Variantes</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ação</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="grid w-full max-w-full gap-3 overflow-x-hidden md:hidden">
                 {products.map((product) => (
-                  <TableRow
-                    key={product.id}
-                    className="cursor-pointer"
-                    onDoubleClick={() => {
-                      openEditModal(product);
-                    }}
-                  >
-                    <TableCell>
-                      <div className="w-28 rounded-lg border p-2">
+                  <div key={product.id} className="grid w-full max-w-full gap-3 overflow-hidden rounded-lg border p-3">
+                    <div className="flex w-full min-w-0 items-start gap-3 overflow-hidden">
+                      <div className="w-20 shrink-0 rounded-lg border p-1.5">
                         <div className="aspect-square overflow-hidden rounded-md bg-muted">
                           {product.product_images?.[0]?.url ? (
                             <img
@@ -654,42 +637,115 @@ export default function AdminProductsPage() {
                             </div>
                           )}
                         </div>
-                        <p className="mt-1 truncate text-xs font-medium">{product.name}</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          R$ {Number(product.price).toFixed(2)}
-                        </p>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="grid gap-1">
-                        <p className="font-medium">{product.name}</p>
-                        <p className="text-xs text-muted-foreground">{product.description}</p>
+                      <div className="min-w-0 flex-1 space-y-1 overflow-hidden">
+                        <p className="truncate font-medium">{product.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">{product.description}</p>
+                        <div className="grid min-w-0 gap-1 text-xs text-muted-foreground">
+                          <span className="truncate">{product.categories?.name ?? "Sem categoria"}</span>
+                          <span className="truncate">{product.product_types?.name ?? "Sem tipo"}</span>
+                        </div>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="grid gap-1 text-xs text-muted-foreground">
-                        <span>{product.categories?.name ?? "Sem categoria"}</span>
-                        <span>{product.product_types?.name ?? "Sem tipo"}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>R$ {Number(product.price).toFixed(2)}</TableCell>
-                    <TableCell>
-                      {(product.product_variants ?? []).filter((variant) => variant.active).length}
-                    </TableCell>
-                    <TableCell>
+                    </div>
+                    <div className="flex w-full flex-wrap items-center justify-between gap-2 text-xs">
+                      <span className="font-medium">R$ {Number(product.price).toFixed(2)}</span>
+                      <span className="truncate text-muted-foreground">
+                        {(product.product_variants ?? []).filter((variant) => variant.active).length} variantes
+                      </span>
                       <Badge variant={product.active ? "secondary" : "outline"}>
                         {product.active ? "Ativo" : "Inativo"}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm" onClick={() => void toggleProduct(product)}>
+                    </div>
+                    <div className="flex w-full flex-wrap gap-2">
+                      <Button size="sm" variant="outline" onClick={() => openEditModal(product)}>
+                        Editar
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => void toggleProduct(product)}>
                         {product.active ? "Desativar" : "Ativar"}
                       </Button>
-                    </TableCell>
-                  </TableRow>
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Preview</TableHead>
+                      <TableHead>Produto</TableHead>
+                      <TableHead>Categoria / Tipo</TableHead>
+                      <TableHead>Preço</TableHead>
+                      <TableHead>Variantes</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Ação</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {products.map((product) => (
+                      <TableRow
+                        key={product.id}
+                        className="cursor-pointer"
+                        onDoubleClick={() => {
+                          openEditModal(product);
+                        }}
+                      >
+                        <TableCell>
+                          <div className="w-28 rounded-lg border p-2">
+                            <div className="aspect-square overflow-hidden rounded-md bg-muted">
+                              {product.product_images?.[0]?.url ? (
+                                <img
+                                  src={product.product_images[0].url}
+                                  alt={`Preview de ${product.name}`}
+                                  className="size-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="flex size-full items-center justify-center text-[10px] text-muted-foreground">
+                                  Sem imagem
+                                </div>
+                              )}
+                            </div>
+                            <p className="mt-1 truncate text-xs font-medium">{product.name}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              R$ {Number(product.price).toFixed(2)}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="grid gap-1">
+                            <p className="font-medium">{product.name}</p>
+                            <p className="max-w-[180px] truncate text-xs text-muted-foreground sm:max-w-[320px]">
+                              {product.description}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="grid gap-1 text-xs text-muted-foreground">
+                            <span>{product.categories?.name ?? "Sem categoria"}</span>
+                            <span>{product.product_types?.name ?? "Sem tipo"}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>R$ {Number(product.price).toFixed(2)}</TableCell>
+                        <TableCell>
+                          {(product.product_variants ?? []).filter((variant) => variant.active).length}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={product.active ? "secondary" : "outline"}>
+                            {product.active ? "Ativo" : "Inativo"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="outline" size="sm" onClick={() => void toggleProduct(product)}>
+                            {product.active ? "Desativar" : "Ativar"}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           ) : (
             <p className="text-sm text-muted-foreground">Nenhum produto encontrado.</p>
           )}
@@ -697,9 +753,9 @@ export default function AdminProductsPage() {
       </Card>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-xl border bg-background shadow-2xl">
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background px-6 py-4">
+        <div className="fixed inset-0 z-50 flex h-dvh w-screen items-start justify-center overflow-hidden bg-black/60 p-0 sm:items-center sm:overflow-y-auto sm:p-4">
+          <div className="h-dvh w-screen overflow-y-auto rounded-none border-0 bg-background shadow-2xl sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-6xl sm:rounded-xl sm:border">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background px-4 py-3 sm:px-6 sm:py-4">
               <div>
                 <h2 className="text-lg font-semibold">{editingProduct ? "Editar produto" : "Novo produto"}</h2>
                 <p className="text-sm text-muted-foreground">
@@ -711,7 +767,7 @@ export default function AdminProductsPage() {
               </Button>
             </div>
 
-            <form onSubmit={onSubmit} className="grid gap-4 p-6 md:grid-cols-2 xl:grid-cols-3">
+            <form onSubmit={onSubmit} className="grid gap-4 p-4 sm:p-6 md:grid-cols-2 xl:grid-cols-3">
               <div className="grid gap-2">
                 <label htmlFor="name" className="text-sm font-medium">
                   Nome
