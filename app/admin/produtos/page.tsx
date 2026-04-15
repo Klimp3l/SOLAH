@@ -706,10 +706,6 @@ export default function AdminProductsPage() {
                                 </div>
                               )}
                             </div>
-                            <p className="mt-1 truncate text-xs font-medium">{product.name}</p>
-                            <p className="text-[10px] text-muted-foreground">
-                              R$ {Number(product.price).toFixed(2)}
-                            </p>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -722,8 +718,7 @@ export default function AdminProductsPage() {
                         </TableCell>
                         <TableCell>
                           <div className="grid gap-1 text-xs text-muted-foreground">
-                            <span>{product.categories?.name ?? "Sem categoria"}</span>
-                            <span>{product.product_types?.name ?? "Sem tipo"}</span>
+                            <span>{product.categories?.name ?? "Sem categoria"} / {product.product_types?.name ?? "Sem tipo"}</span>
                           </div>
                         </TableCell>
                         <TableCell>R$ {Number(product.price).toFixed(2)}</TableCell>

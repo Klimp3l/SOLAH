@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Mail, MessageCircle, Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { MessageComposerDialog } from "@/components/shared/message-composer-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { buildMailtoLink } from "@/lib/adapters/mailto.adapter";
+import { buildWhatsAppContactLink } from "@/lib/adapters/whatsapp.adapter";
 import {
   buildLoginUrl,
   createOrderPayload,
@@ -21,6 +24,12 @@ import type { CartItemInput, ProductImage, ProductVariant, ProductWithImages, Us
 
 type StorefrontPageProps = {
   initialStep?: "catalogo" | "checkout";
+};
+
+type ContactComposerState = {
+  channel: "whatsapp" | "email";
+  recipient: string;
+  defaultMessage: string;
 };
 
 type ProductResponse = {
@@ -165,7 +174,10 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
   const [colorDeselectedByProduct, setColorDeselectedByProduct] = useState<Record<string, boolean>>({});
   const [modalState, setModalState] = useState<{ productId: string; imageIndex: number } | null>(null);
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
+  const [contactComposerState, setContactComposerState] = useState<ContactComposerState | null>(null);
   const isCheckoutView = initialStep === "checkout";
+  const supportWhatsAppNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "5541999999999";
+  const supportEmail = "contato@solah.store";
 
   useEffect(() => {
     let active = true;
@@ -379,6 +391,32 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
     } finally {
       setSubmittingOrder(false);
     }
+  }
+
+  function openSupportWhatsAppComposer() {
+    setContactComposerState({
+      channel: "whatsapp",
+      recipient: supportWhatsAppNumber,
+      defaultMessage: "Olá! Preciso de ajuda com meu pedido."
+    });
+  }
+
+  function openSupportEmailComposer() {
+    setContactComposerState({
+      channel: "email",
+      recipient: supportEmail,
+      defaultMessage: "Olá equipe SOLAH,\n\nPreciso de ajuda com meu pedido."
+    });
+  }
+
+  function handleContactComposerConfirm(message: string) {
+    if (!contactComposerState) return;
+    const link =
+      contactComposerState.channel === "whatsapp"
+        ? buildWhatsAppContactLink(contactComposerState.recipient, message)
+        : buildMailtoLink(contactComposerState.recipient, { body: message });
+    window.open(link, "_blank", "noopener,noreferrer");
+    setContactComposerState(null);
   }
 
   function clearSelectedProductImage(productId: string) {
@@ -1174,13 +1212,13 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
             Precisa de ajuda com pedido ou pagamento? Fale com nosso time.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button asChild variant="outline" size="sm">
-              <a href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "5541999999999"}`} target="_blank" rel="noreferrer">
-                WhatsApp
-              </a>
+            <Button variant="outline" size="sm" onClick={openSupportWhatsAppComposer}>
+              <MessageCircle className="size-4" />
+              WhatsApp
             </Button>
-            <Button asChild variant="outline" size="sm">
-              <a href="mailto:contato@solah.store">Email</a>
+            <Button variant="outline" size="sm" onClick={openSupportEmailComposer}>
+              <Mail className="size-4" />
+              Email
             </Button>
             <Button asChild variant="outline" size="sm">
               <a href="https://instagram.com" target="_blank" rel="noreferrer">
@@ -1189,6 +1227,14 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
             </Button>
           </div>
         </section>
+        <MessageComposerDialog
+          open={Boolean(contactComposerState)}
+          channel={contactComposerState?.channel ?? "whatsapp"}
+          recipient={contactComposerState?.recipient ?? ""}
+          defaultMessage={contactComposerState?.defaultMessage ?? ""}
+          onClose={() => setContactComposerState(null)}
+          onConfirm={handleContactComposerConfirm}
+        />
       </section>
     </main>
   );

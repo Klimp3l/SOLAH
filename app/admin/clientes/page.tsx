@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ExternalLink, Loader2, Plus, RefreshCcw, XIcon } from "lucide-react";
+import { Loader2, Mail, MessageCircle, Plus, RefreshCcw, XIcon } from "lucide-react";
 import { toast } from "sonner";
+import { MessageComposerDialog } from "@/components/shared/message-composer-dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { buildMailtoLink } from "@/lib/adapters/mailto.adapter";
+import { buildWhatsAppContactLink } from "@/lib/adapters/whatsapp.adapter";
 import type { UserRole } from "@/types/domain";
 
 type UserRecord = {
@@ -34,6 +37,12 @@ type UserDraft = {
   phone?: string | null;
 };
 
+type ContactComposerState = {
+  channel: "whatsapp" | "email";
+  recipient: string;
+  defaultMessage: string;
+};
+
 export default function AdminClientesPage() {
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(false);
@@ -45,6 +54,7 @@ export default function AdminClientesPage() {
   const [newUserName, setNewUserName] = useState("");
   const [newUserPhone, setNewUserPhone] = useState("");
   const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
+  const [composerState, setComposerState] = useState<ContactComposerState | null>(null);
 
   async function loadUsers() {
     setLoading(true);
@@ -117,9 +127,41 @@ export default function AdminClientesPage() {
   }
 
   function buildWhatsappLink(user: UserRecord) {
-    const phone = user.phone?.replace(/\D/g, "");
+    const phone = (drafts[user.id]?.phone ?? user.phone)?.replace(/\D/g, "");
     if (!phone) return null;
-    return `https://wa.me/${phone}`;
+    return buildWhatsAppContactLink(phone);
+  }
+
+  function openWhatsAppComposer(user: UserRecord) {
+    const phone = (drafts[user.id]?.phone ?? user.phone ?? "").trim();
+    if (!phone) return;
+    const name = (drafts[user.id]?.name ?? user.name ?? "cliente").trim() || "cliente";
+    setComposerState({
+      channel: "whatsapp",
+      recipient: phone,
+      defaultMessage: `Olá ${name}, tudo bem?`
+    });
+  }
+
+  function openEmailComposer(user: UserRecord) {
+    const email = (drafts[user.id]?.email ?? user.email ?? "").trim();
+    if (!email) return;
+    const name = (drafts[user.id]?.name ?? user.name ?? "cliente").trim() || "cliente";
+    setComposerState({
+      channel: "email",
+      recipient: email,
+      defaultMessage: `Olá ${name},\n\n`
+    });
+  }
+
+  function handleConfirmContactMessage(message: string) {
+    if (!composerState) return;
+    const link =
+      composerState.channel === "whatsapp"
+        ? buildWhatsAppContactLink(composerState.recipient, message)
+        : buildMailtoLink(composerState.recipient, { body: message });
+    window.open(link, "_blank", "noopener,noreferrer");
+    setComposerState(null);
   }
 
   return (
@@ -193,15 +235,19 @@ export default function AdminClientesPage() {
                         {savingId === user.id && <Loader2 className="size-4 animate-spin" />}
                         Salvar
                       </Button>
-                      <Button asChild size="sm" variant="outline">
-                        <a href={`mailto:${drafts[user.id]?.email ?? user.email}`}>Email</a>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openEmailComposer(user)}
+                        disabled={!(drafts[user.id]?.email ?? user.email)}
+                      >
+                        <Mail className="size-4" />
+                        Email
                       </Button>
                       {buildWhatsappLink(user) && (
-                        <Button asChild size="sm" variant="outline">
-                          <a href={buildWhatsappLink(user) ?? "#"} target="_blank" rel="noreferrer">
-                            <ExternalLink className="size-4" />
-                            WhatsApp
-                          </a>
+                        <Button size="sm" variant="outline" onClick={() => openWhatsAppComposer(user)}>
+                          <MessageCircle className="size-4" />
+                          WhatsApp
                         </Button>
                       )}
                     </div>
@@ -257,15 +303,19 @@ export default function AdminClientesPage() {
                               {savingId === user.id && <Loader2 className="size-4 animate-spin" />}
                               Salvar
                             </Button>
-                            <Button asChild size="sm" variant="outline">
-                              <a href={`mailto:${drafts[user.id]?.email ?? user.email}`}>Email</a>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openEmailComposer(user)}
+                              disabled={!(drafts[user.id]?.email ?? user.email)}
+                            >
+                              <Mail className="size-4" />
+                              Email
                             </Button>
                             {buildWhatsappLink(user) && (
-                              <Button asChild size="sm" variant="outline">
-                                <a href={buildWhatsappLink(user) ?? "#"} target="_blank" rel="noreferrer">
-                                  <ExternalLink className="size-4" />
-                                  WhatsApp
-                                </a>
+                              <Button size="sm" variant="outline" onClick={() => openWhatsAppComposer(user)}>
+                                <MessageCircle className="size-4" />
+                                WhatsApp
                               </Button>
                             )}
                           </div>
@@ -320,6 +370,14 @@ export default function AdminClientesPage() {
           </div>
         )
       }
+      <MessageComposerDialog
+        open={Boolean(composerState)}
+        channel={composerState?.channel ?? "whatsapp"}
+        recipient={composerState?.recipient ?? ""}
+        defaultMessage={composerState?.defaultMessage ?? ""}
+        onClose={() => setComposerState(null)}
+        onConfirm={handleConfirmContactMessage}
+      />
     </div >
   );
 }

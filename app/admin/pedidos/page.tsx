@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ExternalLink, Loader2, Plus, RefreshCcw, Upload, XIcon } from "lucide-react";
+import { Loader2, Mail, MessageCircle, Plus, RefreshCcw, Upload, XIcon } from "lucide-react";
 import { toast } from "sonner";
+import { MessageComposerDialog } from "@/components/shared/message-composer-dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { generateWhatsAppStatusLink } from "@/lib/adapters/whatsapp.adapter";
+import { buildMailtoLink } from "@/lib/adapters/mailto.adapter";
+import { buildWhatsAppContactLink } from "@/lib/adapters/whatsapp.adapter";
 import { ORDER_STATUS, type Order, type OrderStatus, type ProductWithImages } from "@/types/domain";
 
 type ApiError = {
@@ -58,6 +60,12 @@ type AdminOrder = Order & {
   }> | null;
 };
 
+type ContactComposerState = {
+  channel: "whatsapp" | "email";
+  recipient: string;
+  defaultMessage: string;
+};
+
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [feedbackError, setFeedbackError] = useState("");
@@ -78,6 +86,7 @@ export default function AdminOrdersPage() {
   const [manualOrderItems, setManualOrderItems] = useState<ManualOrderItemDraft[]>([]);
   const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
   const [selectedOrderForView, setSelectedOrderForView] = useState<AdminOrder | null>(null);
+  const [contactComposerState, setContactComposerState] = useState<ContactComposerState | null>(null);
 
   const manualOrderUserOptions = useMemo(
     () =>
@@ -153,11 +162,50 @@ export default function AdminOrdersPage() {
     }
   }
 
-  function buildWhatsappLink(order: AdminOrder) {
-    const phone = order.users?.phone?.replace(/\D/g, "");
-    if (!phone) return null;
-    const message = `Olá, seu pedido #${order.id.slice(0, 8)} está com status ${order.status.replaceAll("_", " ")}.`;
-    return generateWhatsAppStatusLink(phone, message);
+  function getWhatsappPhone(order: AdminOrder) {
+    return order.users?.phone?.replace(/\D/g, "") ?? "";
+  }
+
+  function getWhatsAppDefaultMessage(order: AdminOrder) {
+    return `Olá, seu pedido #${order.id.slice(0, 8)} está com status ${order.status.replaceAll("_", " ")}.`;
+  }
+
+  function openWhatsAppComposer(order: AdminOrder) {
+    const phone = getWhatsappPhone(order);
+    if (!phone) return;
+    setContactComposerState({
+      channel: "whatsapp",
+      recipient: phone,
+      defaultMessage: getWhatsAppDefaultMessage(order)
+    });
+  }
+
+  function getOrderEmail(order: AdminOrder) {
+    return order.users?.email?.trim() ?? "";
+  }
+
+  function getEmailDefaultMessage(order: AdminOrder) {
+    return `Olá, seu pedido #${order.id.slice(0, 8)} está com status ${order.status.replaceAll("_", " ")}.`;
+  }
+
+  function openEmailComposer(order: AdminOrder) {
+    const email = getOrderEmail(order);
+    if (!email) return;
+    setContactComposerState({
+      channel: "email",
+      recipient: email,
+      defaultMessage: getEmailDefaultMessage(order)
+    });
+  }
+
+  function handleConfirmContactMessage(message: string) {
+    if (!contactComposerState) return;
+    const link =
+      contactComposerState.channel === "whatsapp"
+        ? buildWhatsAppContactLink(contactComposerState.recipient, message)
+        : buildMailtoLink(contactComposerState.recipient, { body: message });
+    window.open(link, "_blank", "noopener,noreferrer");
+    setContactComposerState(null);
   }
 
   function formatCurrency(value: number) {
@@ -477,14 +525,24 @@ export default function AdminOrdersPage() {
                           {pendingStatusId === order.id && <Loader2 className="size-4 animate-spin" />}
                           Salvar status
                         </Button>
-                        {buildWhatsappLink(order) && (
-                          <Button asChild size="sm" variant="outline">
-                            <a href={buildWhatsappLink(order) ?? "#"} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>
-                              <ExternalLink className="size-4" />
-                              WhatsApp
-                            </a>
-                          </Button>
-                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openWhatsAppComposer(order)}
+                          disabled={!getWhatsappPhone(order)}
+                        >
+                          <MessageCircle className="size-4" />
+                          WhatsApp
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openEmailComposer(order)}
+                          disabled={!getOrderEmail(order)}
+                        >
+                          <Mail className="size-4" />
+                          E-mail
+                        </Button>
                       </div>
                     </div>
 
@@ -598,14 +656,24 @@ export default function AdminOrdersPage() {
                                 {pendingStatusId === order.id && <Loader2 className="size-4 animate-spin" />}
                                 Salvar
                               </Button>
-                              {buildWhatsappLink(order) && (
-                                <Button asChild size="sm" variant="outline">
-                                  <a href={buildWhatsappLink(order) ?? "#"} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>
-                                    <ExternalLink className="size-4" />
-                                    Enviar WhatsApp
-                                  </a>
-                                </Button>
-                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openWhatsAppComposer(order)}
+                                disabled={!getWhatsappPhone(order)}
+                              >
+                                <MessageCircle className="size-4" />
+                                Enviar WhatsApp
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openEmailComposer(order)}
+                                disabled={!getOrderEmail(order)}
+                              >
+                                <Mail className="size-4" />
+                                Enviar E-mail
+                              </Button>
                             </div>
                           </div>
                         </TableCell>
@@ -860,6 +928,14 @@ export default function AdminOrdersPage() {
           </div>
         </div>
       )}
+      <MessageComposerDialog
+        open={Boolean(contactComposerState)}
+        channel={contactComposerState?.channel ?? "whatsapp"}
+        recipient={contactComposerState?.recipient ?? ""}
+        defaultMessage={contactComposerState?.defaultMessage ?? ""}
+        onClose={() => setContactComposerState(null)}
+        onConfirm={handleConfirmContactMessage}
+      />
     </div>
   );
 }
