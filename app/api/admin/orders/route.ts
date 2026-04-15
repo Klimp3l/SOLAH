@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     const orderService = makeOrderService();
     const order = await orderService.createOrder({
       userId: payload.userId,
-      phone: payload.phone ?? "0000000000",
+      phone: payload.phone,
       idempotencyKey: payload.idempotencyKey ?? crypto.randomUUID(),
       items: payload.items
     });

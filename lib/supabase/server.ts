@@ -12,10 +12,19 @@ export async function createSupabaseServerClient() {
         return cookieStore.get(name)?.value;
       },
       set(name: string, value: string, options: any) {
-        cookieStore.set({ name, value, ...options });
+        try {
+          cookieStore.set({ name, value, ...options });
+        } catch {
+          // Server Components não podem mutar cookies durante render.
+          // Em Route Handlers / Server Actions o set continuará funcionando.
+        }
       },
       remove(name: string, options: any) {
-        cookieStore.set({ name, value: "", ...options });
+        try {
+          cookieStore.set({ name, value: "", ...options });
+        } catch {
+          // Server Components não podem mutar cookies durante render.
+        }
       }
     }
   });

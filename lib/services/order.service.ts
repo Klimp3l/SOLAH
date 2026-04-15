@@ -10,7 +10,7 @@ import { createOrderDeps, type CreateOrderServiceDeps } from "@/lib/factories/or
 type CreateOrderInput = {
   userId: string;
   idempotencyKey: string;
-  phone: string;
+  phone?: string;
   items: CartItemInput[];
 };
 
@@ -85,7 +85,9 @@ export class OrderService {
       throw new ConflictError("Total do pedido inválido.");
     }
 
-    await this.deps.userRepository.updatePhone(input.userId, input.phone);
+    if (input.phone?.trim()) {
+      await this.deps.userRepository.updatePhone(input.userId, input.phone.trim());
+    }
 
     const order = await this.deps.orderRepository.createWithItems({
       userId: input.userId,

@@ -8,7 +8,9 @@ export class OrderRepository {
   async listAll() {
     const { data, error } = await this.supabase
       .from("orders")
-      .select("id,user_id,total,status,tracking_code,payment_proof_url,idempotency_key,created_at,users(email,name,phone)")
+      .select(
+        "id,user_id,total,status,tracking_code,payment_proof_url,idempotency_key,created_at,users(email,name,phone),order_items(quantity,price,products(name),product_variants(id,product_colors(name),sizes(name)))"
+      )
       .order("created_at", { ascending: false });
 
     if (error) throw error;
