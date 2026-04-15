@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { ComponentProps } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,8 +9,8 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type LogoutButtonProps = {
   redirectTo?: string;
-  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
-  size?: "default" | "sm" | "lg" | "icon";
+  variant?: ComponentProps<typeof Button>["variant"];
+  size?: ComponentProps<typeof Button>["size"];
   className?: string;
 };
 
