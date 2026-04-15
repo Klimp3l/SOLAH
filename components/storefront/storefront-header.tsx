@@ -4,7 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CreditCard, MessageCircle, PackageCheck, ShoppingBag } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types/domain";
@@ -20,12 +19,6 @@ type AuthMeResponse = {
 
 type StorefrontHeaderProps = {
   activeView: StorefrontHeaderView;
-};
-
-const viewBadgeLabel: Record<StorefrontHeaderView, string> = {
-  catalogo: "Catálogo",
-  checkout: "Checkout",
-  pedidos: "Meus pedidos"
 };
 
 export function StorefrontHeader({ activeView }: StorefrontHeaderProps) {
@@ -65,22 +58,19 @@ export function StorefrontHeader({ activeView }: StorefrontHeaderProps) {
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 md:px-6">
-        <div className="flex items-center gap-3">
-          <Image src="/images/logo.png" alt="Logo SOLAH" width={28} height={28} className="rounded-sm object-contain" />
-          <p className="text-sm font-semibold tracking-wide">SOLAH Store</p>
-          <Badge variant="secondary">{viewBadgeLabel[activeView]}</Badge>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {authRole === "admin" && (
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/admin">Acessar admin</Link>
-            </Button>
-          )}
-        </div>
-      </div>
-      <div className="mx-auto w-full max-w-6xl px-4 pb-4 md:px-6">
-        <nav className="flex flex-wrap gap-2">
+      <Link href="/" className="mx-auto block w-fit md:absolute md:left-6 md:top-1/2 md:z-10 md:-translate-y-1/2">
+        <Image
+          src="/images/logo.png"
+          alt="Logo SOLAH"
+          width={56}
+          height={56}
+          className="rounded-sm object-contain"
+          style={{ width: "auto", height: "auto" }}
+        />
+      </Link>
+
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:gap-3 md:px-6 md:py-4">
+        <nav className="flex w-full min-w-0 items-center gap-2 overflow-x-auto whitespace-nowrap md:flex-1 md:pl-16">
           <Link
             href="/"
             className={cn(
@@ -125,6 +115,14 @@ export function StorefrontHeader({ activeView }: StorefrontHeaderProps) {
             Contato
           </Link>
         </nav>
+
+        <div className="flex shrink-0 items-center gap-2 self-end md:self-auto">
+          {authRole === "admin" && (
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/admin">Acessar admin</Link>
+            </Button>
+          )}
+        </div>
       </div>
     </header>
   );
