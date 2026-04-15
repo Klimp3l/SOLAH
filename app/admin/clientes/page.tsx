@@ -7,7 +7,6 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { UserRole } from "@/types/domain";
@@ -29,13 +28,19 @@ type ApiResponse<T> = {
   data: T;
 };
 
+type UserDraft = {
+  email?: string;
+  name?: string;
+  phone?: string | null;
+};
+
 export default function AdminClientesPage() {
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [feedbackError, setFeedbackError] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [drafts, setDrafts] = useState<Record<string, Partial<UserRecord>>>({});
+  const [drafts, setDrafts] = useState<Record<string, UserDraft>>({});
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserName, setNewUserName] = useState("");
   const [newUserPhone, setNewUserPhone] = useState("");
@@ -53,7 +58,7 @@ export default function AdminClientesPage() {
         Object.fromEntries(
           (payload.data ?? []).map((user) => [
             user.id,
-            { email: user.email, name: user.name, phone: user.phone, role: user.role }
+            { email: user.email, name: user.name, phone: user.phone }
           ])
         )
       );
@@ -183,20 +188,6 @@ export default function AdminClientesPage() {
                       }
                       placeholder="Telefone"
                     />
-                    <Select
-                      value={drafts[user.id]?.role ?? user.role}
-                      onValueChange={(value) =>
-                        setDrafts((prev) => ({ ...prev, [user.id]: { ...prev[user.id], role: value as UserRole } }))
-                      }
-                    >
-                      <SelectTrigger className="h-9 w-full">
-                        <SelectValue placeholder="Perfil" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="user">user</SelectItem>
-                        <SelectItem value="admin">admin</SelectItem>
-                      </SelectContent>
-                    </Select>
                     <div className="flex flex-wrap gap-2">
                       <Button size="sm" variant="outline" onClick={() => void saveUser(user.id)} disabled={savingId === user.id}>
                         {savingId === user.id && <Loader2 className="size-4 animate-spin" />}
@@ -225,7 +216,6 @@ export default function AdminClientesPage() {
                       <TableHead>Nome</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Telefone</TableHead>
-                      <TableHead>Perfil</TableHead>
                       <TableHead>Ações</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -255,22 +245,6 @@ export default function AdminClientesPage() {
                               setDrafts((prev) => ({ ...prev, [user.id]: { ...prev[user.id], phone: event.target.value } }))
                             }
                           />
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={drafts[user.id]?.role ?? user.role}
-                            onValueChange={(value) =>
-                              setDrafts((prev) => ({ ...prev, [user.id]: { ...prev[user.id], role: value as UserRole } }))
-                            }
-                          >
-                            <SelectTrigger className="h-9 min-w-32">
-                              <SelectValue placeholder="Perfil" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="user">user</SelectItem>
-                              <SelectItem value="admin">admin</SelectItem>
-                            </SelectContent>
-                          </Select>
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
