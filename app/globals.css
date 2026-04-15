@@ -1,25 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --background: oklch(0.985 0.004 45);
-  --foreground: oklch(0.215 0.01 255);
-  --card: oklch(0.998 0.001 120);
-  --card-foreground: oklch(0.215 0.01 255);
-  --popover: oklch(0.998 0.001 120);
-  --popover-foreground: oklch(0.215 0.01 255);
-  --primary: oklch(0.53 0.08 286);
-  --primary-foreground: oklch(0.985 0.004 45);
-  --secondary: oklch(0.95 0.01 286);
-  --secondary-foreground: oklch(0.3 0.03 286);
-  --muted: oklch(0.96 0.003 286);
-  --muted-foreground: oklch(0.52 0.015 286);
-  --accent: oklch(0.94 0.02 330);
-  --accent-foreground: oklch(0.33 0.04 330);
+  --background: #f8f4ee;
+  --foreground: #000000;
+  --card: #f8f4ee;
+  --card-foreground: #000000;
+  --popover: #f8f4ee;
+  --popover-foreground: #000000;
+  --primary: #443a35;
+  --primary-foreground: #f8f4ee;
+  --secondary: #00000014;
+  --secondary-foreground: #000000;
+  --muted: #00000010;
+  --muted-foreground: #000000;
+  --accent: #443a35;
+  --accent-foreground: #f8f4ee;
   --destructive: oklch(0.58 0.2 25);
-  --destructive-foreground: oklch(0.985 0.004 45);
-  --border: oklch(0.9 0.006 286);
-  --input: oklch(0.92 0.006 286);
-  --ring: oklch(0.66 0.08 286);
+  --destructive-foreground: #f8f4ee;
+  --border: #443a35;
+  --input: #443a35;
+  --ring: #443a35;
   --radius: 0.8rem;
 }
 

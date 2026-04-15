@@ -697,7 +697,7 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
                                       ) : (
                                         <span
                                           className="block size-full rounded-full"
-                                          style={{ backgroundColor: color.preview?.value ?? "#e5e7eb" }}
+                                          style={{ backgroundColor: color.preview?.value ?? "#00000020" }}
                                           aria-hidden
                                         />
                                       )}
@@ -1138,7 +1138,7 @@ export function StorefrontPage({ initialStep = "catalogo" }: StorefrontPageProps
                             ) : (
                               <span
                                 className="block size-full rounded-full"
-                                style={{ backgroundColor: color.preview?.value ?? "#e5e7eb" }}
+                                style={{ backgroundColor: color.preview?.value ?? "#00000020" }}
                                 aria-hidden
                               />
                             )}
