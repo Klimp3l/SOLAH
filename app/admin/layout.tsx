@@ -33,7 +33,7 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
 
   const role = await makeUserRepository().getRoleByUserId(user.id);
   if (role !== "admin") {
-    redirect("/auth/login?next=/admin&reason=forbidden");
+    redirect("/");
   }
 
   return (
