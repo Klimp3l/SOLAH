@@ -2,9 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CreditCard, MessageCircle, PackageCheck, ShoppingBag } from "lucide-react";
+import { LogoutButton } from "@/components/auth/logout-button";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types/domain";
 
@@ -13,6 +17,7 @@ type StorefrontHeaderView = "catalogo" | "checkout" | "pedidos";
 type AuthMeResponse = {
   data: {
     id: string;
+    email?: string | null;
     role?: UserRole | null;
   } | null;
 };
@@ -22,7 +27,11 @@ type StorefrontHeaderProps = {
 };
 
 export function StorefrontHeader({ activeView }: StorefrontHeaderProps) {
+  const pathname = usePathname();
   const [authRole, setAuthRole] = useState<UserRole | null>(null);
+  const [authEmail, setAuthEmail] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const loginUrl = `/auth/login?next=${encodeURIComponent(pathname || "/")}`;
 
   useEffect(() => {
     let active = true;
@@ -38,14 +47,20 @@ export function StorefrontHeader({ activeView }: StorefrontHeaderProps) {
         if (!active) return;
 
         if (!response.ok || !body?.data?.id) {
+          setIsAuthenticated(false);
           setAuthRole(null);
+          setAuthEmail(null);
           return;
         }
 
+        setIsAuthenticated(true);
         setAuthRole(body.data.role ?? null);
+        setAuthEmail(body.data.email ?? null);
       } catch {
         if (!active) return;
+        setIsAuthenticated(false);
         setAuthRole(null);
+        setAuthEmail(null);
       }
     }
 
@@ -53,6 +68,25 @@ export function StorefrontHeader({ activeView }: StorefrontHeaderProps) {
 
     return () => {
       active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      const user = session?.user ?? null;
+      setIsAuthenticated(Boolean(user?.id));
+      setAuthEmail(user?.email ?? null);
+      if (!user?.id) {
+        setAuthRole(null);
+        setAuthEmail(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
     };
   }, []);
 
@@ -120,6 +154,20 @@ export function StorefrontHeader({ activeView }: StorefrontHeaderProps) {
           {authRole === "admin" && (
             <Button asChild variant="ghost" size="sm">
               <Link href="/admin">Acessar admin</Link>
+            </Button>
+          )}
+          {isAuthenticated && (
+            <>
+              <span className="max-w-[180px] truncate text-xs text-muted-foreground md:max-w-none md:text-sm">
+                {authEmail ?? "Usuário autenticado"}
+              </span>
+              <Separator orientation="vertical" className="hidden h-5 md:block" />
+              <LogoutButton />
+            </>
+          )}
+          {!isAuthenticated && (
+            <Button asChild variant="outline" size="sm">
+              <Link href={loginUrl}>Entrar</Link>
             </Button>
           )}
         </div>

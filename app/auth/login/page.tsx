@@ -25,7 +25,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <Card>
           <CardHeader>
             <CardTitle>Entrar com Google</CardTitle>
-            <CardDescription>Para finalizar seu pedido por favor faça login com sua conta Google.</CardDescription>
+            <CardDescription>Olá! Para continuar, faça login com sua conta Google.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
             <GoogleLoginButton nextPath={nextPath} />
