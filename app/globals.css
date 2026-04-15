@@ -17,9 +17,9 @@
   --accent-foreground: #f8f4ee;
   --destructive: oklch(0.58 0.2 25);
   --destructive-foreground: #f8f4ee;
-  --border: #443a35;
-  --input: #443a35;
-  --ring: #443a35;
+  --border: #443a3540;
+  --input: #443a3550;
+  --ring: #443a3580;
   --radius: 0.8rem;
 }
 
