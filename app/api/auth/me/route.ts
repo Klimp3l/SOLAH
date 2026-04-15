@@ -6,7 +6,9 @@ export async function GET() {
   try {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase.auth.getUser();
-    if (error) throw error;
+    if (error) {
+      return jsonOk({ data: null });
+    }
     if (!data.user) {
       return jsonOk({ data: null });
     }
