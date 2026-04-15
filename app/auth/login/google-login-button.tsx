@@ -18,6 +18,29 @@ function normalizePublicUrl(value: string | undefined) {
   return `https://${trimmed}`;
 }
 
+function isLocalhostHost(hostname: string) {
+  return hostname === "localhost" || hostname === "127.0.0.1";
+}
+
+function resolveRedirectBase() {
+  const browserOrigin = window.location.origin;
+  const browserHost = new URL(browserOrigin).hostname;
+  const candidates = [
+    normalizePublicUrl(process.env.NEXT_PUBLIC_SITE_URL),
+    normalizePublicUrl(process.env.NEXT_PUBLIC_VERCEL_URL),
+    normalizePublicUrl(process.env.NEXT_PUBLIC_APP_URL)
+  ].filter((value): value is string => Boolean(value));
+
+  for (const candidate of candidates) {
+    const candidateHost = new URL(candidate).hostname;
+    // Evita enviar usuários de produção para localhost por env incorreta.
+    if (!isLocalhostHost(browserHost) && isLocalhostHost(candidateHost)) continue;
+    return candidate;
+  }
+
+  return browserOrigin;
+}
+
 export function GoogleLoginButton({ nextPath }: GoogleLoginButtonProps) {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -28,11 +51,7 @@ export function GoogleLoginButton({ nextPath }: GoogleLoginButtonProps) {
 
     try {
       const supabase = createSupabaseBrowserClient();
-      const redirectBase =
-        normalizePublicUrl(process.env.NEXT_PUBLIC_SITE_URL) ??
-        normalizePublicUrl(process.env.NEXT_PUBLIC_VERCEL_URL) ??
-        normalizePublicUrl(process.env.NEXT_PUBLIC_APP_URL) ??
-        window.location.origin;
+      const redirectBase = resolveRedirectBase();
       const redirectTo = new URL("/auth/callback", redirectBase);
       redirectTo.searchParams.set("next", nextPath);
 
