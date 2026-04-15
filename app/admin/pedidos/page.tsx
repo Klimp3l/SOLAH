@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ExternalLink, Loader2, RefreshCcw, Upload } from "lucide-react";
+import { ExternalLink, Loader2, Plus, RefreshCcw, Upload, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +49,7 @@ export default function AdminOrdersPage() {
   const [manualOrderItemsJson, setManualOrderItemsJson] = useState(
     '[{"productId":"","variantId":"","quantity":1}]'
   );
+  const [isCreateOrderModalOpen, setIsCreateOrderModalOpen] = useState(false);
 
   async function loadOrders() {
     setLoading(true);
@@ -150,6 +151,7 @@ export default function AdminOrdersPage() {
         throw new Error(payload.message ?? "Falha ao criar pedido manual.");
       }
       toast.success(`Pedido ${payload.data.id.slice(0, 8)} criado com sucesso.`);
+      setIsCreateOrderModalOpen(false);
       await loadOrders();
     } catch (error) {
       setFeedbackError(error instanceof Error ? error.message : "Erro ao criar pedido.");
@@ -219,10 +221,16 @@ export default function AdminOrdersPage() {
             <CardTitle className="text-2xl">Admin · Pedidos</CardTitle>
             <CardDescription>Atualize status e rastreio com ações rápidas por linha.</CardDescription>
           </div>
-          <Button variant="outline" onClick={() => void loadOrders()} disabled={loading}>
-            <RefreshCcw className="size-4" />
-            Recarregar
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => void loadOrders()} disabled={loading}>
+              <RefreshCcw className="size-4" />
+              Recarregar
+            </Button>
+            <Button onClick={() => setIsCreateOrderModalOpen(true)}>
+              <Plus className="size-4" />
+              Criar pedido
+            </Button>
+          </div>
         </CardHeader>
         {feedbackError && (
           <CardContent>
@@ -232,36 +240,6 @@ export default function AdminOrdersPage() {
             </Alert>
           </CardContent>
         )}
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Criar pedido manual</CardTitle>
-          <CardDescription>
-            Informe o usuário e os itens do pedido (JSON com productId, variantId, quantity).
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3">
-          <Input
-            placeholder="User ID (UUID)"
-            value={manualOrderUserId}
-            onChange={(event) => setManualOrderUserId(event.target.value)}
-          />
-          <Input
-            placeholder="Telefone (opcional)"
-            value={manualOrderPhone}
-            onChange={(event) => setManualOrderPhone(event.target.value)}
-          />
-          <Input
-            placeholder='[{"productId":"...","variantId":"...","quantity":1}]'
-            value={manualOrderItemsJson}
-            onChange={(event) => setManualOrderItemsJson(event.target.value)}
-          />
-          <Button onClick={() => void createManualOrder()} disabled={creatingOrder}>
-            {creatingOrder && <Loader2 className="size-4 animate-spin" />}
-            Criar pedido
-          </Button>
-        </CardContent>
       </Card>
 
       <Card>
@@ -277,132 +255,290 @@ export default function AdminOrdersPage() {
               <Skeleton className="h-12 w-full" />
             </div>
           ) : orders.length ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Pedido</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Rastreio</TableHead>
-                  <TableHead>Comprovante</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="grid w-full max-w-full gap-3 overflow-x-hidden md:hidden">
                 {orders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell>
-                      <div className="grid gap-1">
-                        <p className="font-medium">#{order.id.slice(0, 8)}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(order.created_at).toLocaleString("pt-BR")}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="max-w-[220px]">
-                      <div className="grid gap-0.5">
-                        <span className="truncate text-xs text-muted-foreground">{order.user_id}</span>
-                        <span className="font-medium">{order.users?.name ?? "Cliente"}</span>
-                        <span className="text-xs text-muted-foreground">{order.users?.email ?? "Sem email"}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>R$ {Number(order.total).toFixed(2)}</TableCell>
-                    <TableCell>
-                      <div className="grid gap-2">
-                        <Badge variant="outline">{order.status}</Badge>
-                        <div className="flex gap-2">
-                          <Select
-                            value={statusDrafts[order.id] ?? order.status}
-                            onValueChange={(value) =>
-                              setStatusDrafts((prev) => ({ ...prev, [order.id]: value as OrderStatus }))
-                            }
-                          >
-                            <SelectTrigger className="h-9 min-w-44">
-                              <SelectValue placeholder="Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {ORDER_STATUS.map((status) => (
-                                <SelectItem key={status} value={status}>
-                                  {status}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => void updateStatus(order.id)}
-                            disabled={pendingStatusId === order.id}
-                          >
-                            {pendingStatusId === order.id && <Loader2 className="size-4 animate-spin" />}
-                            Salvar
-                          </Button>
-                          {buildWhatsappLink(order) && (
-                            <Button asChild size="sm" variant="outline">
-                              <a href={buildWhatsappLink(order) ?? "#"} target="_blank" rel="noreferrer">
-                                <ExternalLink className="size-4" />
-                                Enviar WhatsApp
-                              </a>
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Input
-                          value={trackingDrafts[order.id] ?? ""}
-                          onChange={(event) =>
-                            setTrackingDrafts((prev) => ({ ...prev, [order.id]: event.target.value }))
-                          }
-                          placeholder="Código"
-                          className="h-9 min-w-40"
-                        />
+                  <div key={order.id} className="grid w-full max-w-full gap-3 overflow-hidden rounded-lg border p-3">
+                    <div className="grid gap-1">
+                      <p className="font-medium">#{order.id.slice(0, 8)}</p>
+                      <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleString("pt-BR")}</p>
+                    </div>
+
+                    <div className="grid min-w-0 gap-0.5">
+                      <span className="truncate text-xs text-muted-foreground">{order.user_id}</span>
+                      <span className="truncate font-medium">{order.users?.name ?? "Cliente"}</span>
+                      <span className="truncate text-xs text-muted-foreground">{order.users?.email ?? "Sem email"}</span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-sm font-medium">R$ {Number(order.total).toFixed(2)}</span>
+                      <Badge variant="outline">{order.status}</Badge>
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Select
+                        value={statusDrafts[order.id] ?? order.status}
+                        onValueChange={(value) =>
+                          setStatusDrafts((prev) => ({ ...prev, [order.id]: value as OrderStatus }))
+                        }
+                      >
+                        <SelectTrigger className="h-9 w-full">
+                          <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ORDER_STATUS.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <div className="flex flex-wrap gap-2">
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => void updateTracking(order.id)}
-                          disabled={pendingTrackingId === order.id}
+                          onClick={() => void updateStatus(order.id)}
+                          disabled={pendingStatusId === order.id}
                         >
-                          {pendingTrackingId === order.id && <Loader2 className="size-4 animate-spin" />}
-                          Salvar
+                          {pendingStatusId === order.id && <Loader2 className="size-4 animate-spin" />}
+                          Salvar status
                         </Button>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="grid gap-2">
-                        {order.payment_proof_url ? (
-                          <button
-                            type="button"
-                            className="w-fit text-xs text-primary underline underline-offset-4"
-                            onClick={() => void openPaymentProof(order.id)}
-                            disabled={openingProofId === order.id}
-                          >
-                            {openingProofId === order.id ? "Abrindo..." : "Ver comprovante"}
-                          </button>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Sem comprovante</span>
+                        {buildWhatsappLink(order) && (
+                          <Button asChild size="sm" variant="outline">
+                            <a href={buildWhatsappLink(order) ?? "#"} target="_blank" rel="noreferrer">
+                              <ExternalLink className="size-4" />
+                              WhatsApp
+                            </a>
+                          </Button>
                         )}
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="file"
-                            accept="image/*,.pdf"
-                            onChange={(event) => void uploadPaymentProof(order.id, event.target.files?.[0] ?? null)}
-                            className="text-xs"
-                          />
-                          {pendingProofId === order.id && <Upload className="size-4 animate-pulse text-primary" />}
-                        </div>
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Input
+                        value={trackingDrafts[order.id] ?? ""}
+                        onChange={(event) => setTrackingDrafts((prev) => ({ ...prev, [order.id]: event.target.value }))}
+                        placeholder="Código de rastreio"
+                        className="h-9 w-full"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void updateTracking(order.id)}
+                        disabled={pendingTrackingId === order.id}
+                      >
+                        {pendingTrackingId === order.id && <Loader2 className="size-4 animate-spin" />}
+                        Salvar rastreio
+                      </Button>
+                    </div>
+
+                    <div className="grid gap-2">
+                      {order.payment_proof_url ? (
+                        <button
+                          type="button"
+                          className="w-fit text-xs text-primary underline underline-offset-4"
+                          onClick={() => void openPaymentProof(order.id)}
+                          disabled={openingProofId === order.id}
+                        >
+                          {openingProofId === order.id ? "Abrindo..." : "Ver comprovante"}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Sem comprovante</span>
+                      )}
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          onChange={(event) => void uploadPaymentProof(order.id, event.target.files?.[0] ?? null)}
+                          className="max-w-full text-xs"
+                        />
+                        {pendingProofId === order.id && <Upload className="size-4 animate-pulse text-primary" />}
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Pedido</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Total</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Rastreio</TableHead>
+                      <TableHead>Comprovante</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {orders.map((order) => (
+                      <TableRow key={order.id}>
+                        <TableCell>
+                          <div className="grid gap-1">
+                            <p className="font-medium">#{order.id.slice(0, 8)}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(order.created_at).toLocaleString("pt-BR")}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-[220px]">
+                          <div className="grid gap-0.5">
+                            <span className="truncate text-xs text-muted-foreground">{order.user_id}</span>
+                            <span className="font-medium">{order.users?.name ?? "Cliente"}</span>
+                            <span className="text-xs text-muted-foreground">{order.users?.email ?? "Sem email"}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>R$ {Number(order.total).toFixed(2)}</TableCell>
+                        <TableCell>
+                          <div className="grid gap-2">
+                            <Badge variant="outline">{order.status}</Badge>
+                            <div className="flex gap-2">
+                              <Select
+                                value={statusDrafts[order.id] ?? order.status}
+                                onValueChange={(value) =>
+                                  setStatusDrafts((prev) => ({ ...prev, [order.id]: value as OrderStatus }))
+                                }
+                              >
+                                <SelectTrigger className="h-9 min-w-44">
+                                  <SelectValue placeholder="Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {ORDER_STATUS.map((status) => (
+                                    <SelectItem key={status} value={status}>
+                                      {status}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => void updateStatus(order.id)}
+                                disabled={pendingStatusId === order.id}
+                              >
+                                {pendingStatusId === order.id && <Loader2 className="size-4 animate-spin" />}
+                                Salvar
+                              </Button>
+                              {buildWhatsappLink(order) && (
+                                <Button asChild size="sm" variant="outline">
+                                  <a href={buildWhatsappLink(order) ?? "#"} target="_blank" rel="noreferrer">
+                                    <ExternalLink className="size-4" />
+                                    Enviar WhatsApp
+                                  </a>
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Input
+                              value={trackingDrafts[order.id] ?? ""}
+                              onChange={(event) =>
+                                setTrackingDrafts((prev) => ({ ...prev, [order.id]: event.target.value }))
+                              }
+                              placeholder="Código"
+                              className="h-9 min-w-40"
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void updateTracking(order.id)}
+                              disabled={pendingTrackingId === order.id}
+                            >
+                              {pendingTrackingId === order.id && <Loader2 className="size-4 animate-spin" />}
+                              Salvar
+                            </Button>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="grid gap-2">
+                            {order.payment_proof_url ? (
+                              <button
+                                type="button"
+                                className="w-fit text-xs text-primary underline underline-offset-4"
+                                onClick={() => void openPaymentProof(order.id)}
+                                disabled={openingProofId === order.id}
+                              >
+                                {openingProofId === order.id ? "Abrindo..." : "Ver comprovante"}
+                              </button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Sem comprovante</span>
+                            )}
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="file"
+                                accept="image/*,.pdf"
+                                onChange={(event) => void uploadPaymentProof(order.id, event.target.files?.[0] ?? null)}
+                                className="text-xs"
+                              />
+                              {pendingProofId === order.id && <Upload className="size-4 animate-pulse text-primary" />}
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           ) : (
             <p className="text-sm text-muted-foreground">Nenhum pedido encontrado.</p>
           )}
         </CardContent>
       </Card>
+
+      {isCreateOrderModalOpen && (
+        <div className="fixed inset-0 z-50 flex h-dvh w-screen items-start justify-center overflow-hidden bg-black/60 p-0 sm:items-center sm:overflow-y-auto sm:p-4">
+          <div className="h-dvh w-screen overflow-y-auto rounded-none border-0 bg-background shadow-2xl sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-2xl sm:rounded-xl sm:border">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background px-4 py-3 sm:px-6 sm:py-4">
+              <div>
+                <h2 className="text-lg font-semibold">Criar pedido manual</h2>
+                <p className="text-sm text-muted-foreground">
+                  Informe o usuário e os itens do pedido (JSON com productId, variantId, quantity).
+                </p>
+              </div>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setIsCreateOrderModalOpen(false)}>
+                <XIcon className="size-4" />
+              </Button>
+            </div>
+
+            <form
+              className="grid gap-4 p-4 sm:p-6"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void createManualOrder();
+              }}
+            >
+              <Input
+                placeholder="User ID (UUID)"
+                value={manualOrderUserId}
+                onChange={(event) => setManualOrderUserId(event.target.value)}
+              />
+              <Input
+                placeholder="Telefone (opcional)"
+                value={manualOrderPhone}
+                onChange={(event) => setManualOrderPhone(event.target.value)}
+              />
+              <Input
+                placeholder='[{"productId":"...","variantId":"...","quantity":1}]'
+                value={manualOrderItemsJson}
+                onChange={(event) => setManualOrderItemsJson(event.target.value)}
+              />
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setIsCreateOrderModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={creatingOrder}>
+                  {creatingOrder && <Loader2 className="size-4 animate-spin" />}
+                  Criar pedido
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

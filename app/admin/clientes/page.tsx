@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ExternalLink, Loader2, RefreshCcw } from "lucide-react";
+import { ExternalLink, Loader2, Plus, RefreshCcw, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ export default function AdminClientesPage() {
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserName, setNewUserName] = useState("");
   const [newUserPhone, setNewUserPhone] = useState("");
+  const [isCreateUserModalOpen, setIsCreateUserModalOpen] = useState(false);
 
   async function loadUsers() {
     setLoading(true);
@@ -101,6 +102,7 @@ export default function AdminClientesPage() {
       setNewUserEmail("");
       setNewUserName("");
       setNewUserPhone("");
+      setIsCreateUserModalOpen(false);
       await loadUsers();
     } catch (error) {
       setFeedbackError(error instanceof Error ? error.message : "Erro ao criar cliente.");
@@ -123,10 +125,16 @@ export default function AdminClientesPage() {
             <CardTitle className="text-2xl">Admin · Clientes</CardTitle>
             <CardDescription>Gerencie dados de clientes, email e contato por WhatsApp.</CardDescription>
           </div>
-          <Button variant="outline" onClick={() => void loadUsers()} disabled={loading}>
-            <RefreshCcw className="size-4" />
-            Recarregar
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" onClick={() => void loadUsers()} disabled={loading}>
+              <RefreshCcw className="size-4" />
+              Recarregar
+            </Button>
+            <Button onClick={() => setIsCreateUserModalOpen(true)}>
+              <Plus className="size-4" />
+              Adicionar cliente
+            </Button>
+          </div>
         </CardHeader>
         {feedbackError && (
           <CardContent>
@@ -136,22 +144,6 @@ export default function AdminClientesPage() {
             </Alert>
           </CardContent>
         )}
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Criar cliente manualmente</CardTitle>
-          <CardDescription>Use o email para criar uma conta que poderá ser vinculada no primeiro login.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-4">
-          <Input placeholder="Email" value={newUserEmail} onChange={(event) => setNewUserEmail(event.target.value)} />
-          <Input placeholder="Nome" value={newUserName} onChange={(event) => setNewUserName(event.target.value)} />
-          <Input placeholder="Telefone" value={newUserPhone} onChange={(event) => setNewUserPhone(event.target.value)} />
-          <Button onClick={() => void createUser()} disabled={creating}>
-            {creating && <Loader2 className="size-4 animate-spin" />}
-            Criar cliente
-          </Button>
-        </CardContent>
       </Card>
 
       <Card>
@@ -166,87 +158,194 @@ export default function AdminClientesPage() {
               <Skeleton className="h-12 w-full" />
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Telefone</TableHead>
-                  <TableHead>Perfil</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="grid w-full max-w-full gap-3 overflow-x-hidden md:hidden">
                 {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <Input
-                        value={drafts[user.id]?.name ?? user.name}
-                        onChange={(event) =>
-                          setDrafts((prev) => ({ ...prev, [user.id]: { ...prev[user.id], name: event.target.value } }))
-                        }
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={drafts[user.id]?.email ?? user.email}
-                        onChange={(event) =>
-                          setDrafts((prev) => ({ ...prev, [user.id]: { ...prev[user.id], email: event.target.value } }))
-                        }
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={drafts[user.id]?.phone ?? user.phone ?? ""}
-                        onChange={(event) =>
-                          setDrafts((prev) => ({ ...prev, [user.id]: { ...prev[user.id], phone: event.target.value } }))
-                        }
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={drafts[user.id]?.role ?? user.role}
-                        onValueChange={(value) =>
-                          setDrafts((prev) => ({ ...prev, [user.id]: { ...prev[user.id], role: value as UserRole } }))
-                        }
-                      >
-                        <SelectTrigger className="h-9 min-w-32">
-                          <SelectValue placeholder="Perfil" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="user">user</SelectItem>
-                          <SelectItem value="admin">admin</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => void saveUser(user.id)} disabled={savingId === user.id}>
-                          {savingId === user.id && <Loader2 className="size-4 animate-spin" />}
-                          Salvar
-                        </Button>
+                  <div key={user.id} className="grid w-full max-w-full gap-3 overflow-hidden rounded-lg border p-3">
+                    <Input
+                      value={drafts[user.id]?.name ?? user.name}
+                      onChange={(event) =>
+                        setDrafts((prev) => ({ ...prev, [user.id]: { ...prev[user.id], name: event.target.value } }))
+                      }
+                      placeholder="Nome"
+                    />
+                    <Input
+                      value={drafts[user.id]?.email ?? user.email}
+                      onChange={(event) =>
+                        setDrafts((prev) => ({ ...prev, [user.id]: { ...prev[user.id], email: event.target.value } }))
+                      }
+                      placeholder="Email"
+                    />
+                    <Input
+                      value={drafts[user.id]?.phone ?? user.phone ?? ""}
+                      onChange={(event) =>
+                        setDrafts((prev) => ({ ...prev, [user.id]: { ...prev[user.id], phone: event.target.value } }))
+                      }
+                      placeholder="Telefone"
+                    />
+                    <Select
+                      value={drafts[user.id]?.role ?? user.role}
+                      onValueChange={(value) =>
+                        setDrafts((prev) => ({ ...prev, [user.id]: { ...prev[user.id], role: value as UserRole } }))
+                      }
+                    >
+                      <SelectTrigger className="h-9 w-full">
+                        <SelectValue placeholder="Perfil" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="user">user</SelectItem>
+                        <SelectItem value="admin">admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="outline" onClick={() => void saveUser(user.id)} disabled={savingId === user.id}>
+                        {savingId === user.id && <Loader2 className="size-4 animate-spin" />}
+                        Salvar
+                      </Button>
+                      <Button asChild size="sm" variant="outline">
+                        <a href={`mailto:${drafts[user.id]?.email ?? user.email}`}>Email</a>
+                      </Button>
+                      {buildWhatsappLink(user) && (
                         <Button asChild size="sm" variant="outline">
-                          <a href={`mailto:${drafts[user.id]?.email ?? user.email}`}>
-                            Email
+                          <a href={buildWhatsappLink(user) ?? "#"} target="_blank" rel="noreferrer">
+                            <ExternalLink className="size-4" />
+                            WhatsApp
                           </a>
                         </Button>
-                        {buildWhatsappLink(user) && (
-                          <Button asChild size="sm" variant="outline">
-                            <a href={buildWhatsappLink(user) ?? "#"} target="_blank" rel="noreferrer">
-                              <ExternalLink className="size-4" />
-                              WhatsApp
-                            </a>
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                      )}
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Telefone</TableHead>
+                      <TableHead>Perfil</TableHead>
+                      <TableHead>Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell>
+                          <Input
+                            value={drafts[user.id]?.name ?? user.name}
+                            onChange={(event) =>
+                              setDrafts((prev) => ({ ...prev, [user.id]: { ...prev[user.id], name: event.target.value } }))
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={drafts[user.id]?.email ?? user.email}
+                            onChange={(event) =>
+                              setDrafts((prev) => ({ ...prev, [user.id]: { ...prev[user.id], email: event.target.value } }))
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={drafts[user.id]?.phone ?? user.phone ?? ""}
+                            onChange={(event) =>
+                              setDrafts((prev) => ({ ...prev, [user.id]: { ...prev[user.id], phone: event.target.value } }))
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={drafts[user.id]?.role ?? user.role}
+                            onValueChange={(value) =>
+                              setDrafts((prev) => ({ ...prev, [user.id]: { ...prev[user.id], role: value as UserRole } }))
+                            }
+                          >
+                            <SelectTrigger className="h-9 min-w-32">
+                              <SelectValue placeholder="Perfil" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="user">user</SelectItem>
+                              <SelectItem value="admin">admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void saveUser(user.id)}
+                              disabled={savingId === user.id}
+                            >
+                              {savingId === user.id && <Loader2 className="size-4 animate-spin" />}
+                              Salvar
+                            </Button>
+                            <Button asChild size="sm" variant="outline">
+                              <a href={`mailto:${drafts[user.id]?.email ?? user.email}`}>Email</a>
+                            </Button>
+                            {buildWhatsappLink(user) && (
+                              <Button asChild size="sm" variant="outline">
+                                <a href={buildWhatsappLink(user) ?? "#"} target="_blank" rel="noreferrer">
+                                  <ExternalLink className="size-4" />
+                                  WhatsApp
+                                </a>
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
-    </div>
+
+      {
+        isCreateUserModalOpen && (
+          <div className="fixed inset-0 z-50 flex h-dvh w-screen items-start justify-center overflow-hidden bg-black/60 p-0 sm:items-center sm:overflow-y-auto sm:p-4">
+            <div className="h-dvh w-screen overflow-y-auto rounded-none border-0 bg-background shadow-2xl sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-xl sm:rounded-xl sm:border">
+              <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background px-4 py-3 sm:px-6 sm:py-4">
+                <div>
+                  <h2 className="text-lg font-semibold">Criar cliente manualmente</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Use o email para criar uma conta que poderá ser vinculada no primeiro login.
+                  </p>
+                </div>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setIsCreateUserModalOpen(false)}>
+                  <XIcon className="size-4" />
+                </Button>
+              </div>
+
+              <form
+                className="grid gap-4 p-4 sm:p-6"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void createUser();
+                }}
+              >
+                <Input placeholder="Email" value={newUserEmail} onChange={(event) => setNewUserEmail(event.target.value)} />
+                <Input placeholder="Nome" value={newUserName} onChange={(event) => setNewUserName(event.target.value)} />
+                <Input placeholder="Telefone" value={newUserPhone} onChange={(event) => setNewUserPhone(event.target.value)} />
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setIsCreateUserModalOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={creating}>
+                    {creating && <Loader2 className="size-4 animate-spin" />}
+                    Criar cliente
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )
+      }
+    </div >
   );
 }
